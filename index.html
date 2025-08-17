@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 :root{
@@ -72,6 +73,26 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 /* PDF önizleme */
 .pdfBox{width:min(95vw,920px);height:90vh;display:flex;flex-direction:column}
 .pdfFrame{flex:1;border:1px solid var(--line);border-radius:8px}
+
+/* extra modals */
+.modal.warn .box{background:#fff1f2;border-color:#fecdd3}
+.modal.warn .box h3{color:#b91c1c}
+.modal.warn .box .bigwarn{background:#fee2e2;border:2px solid #ef4444;color:#7f1d1d;padding:12px;border-radius:12px;font-size:16px;font-weight:900;display:flex;gap:8px;align-items:flex-start}
+.modal.qr .box{background:#f0f9ff;border-color:#bae6fd}
+.qrArea{display:flex;align-items:center;justify-content:center;padding:12px;border:1px dashed #93c5fd;border-radius:12px;background:#fff}
+.qrArea canvas{max-width:260px;height:auto}
+/* recent modal */
+.groupCard{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff}
+.groupHead{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.groupItems{margin-top:8px;display:none}
+.groupItem{display:flex;justify-content:space-between;align-items:center;border:1px dashed #e2e8f0;border-radius:10px;padding:8px;margin-top:6px}
+.badge2{display:inline-flex;gap:6px;align-items:center;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:999px;padding:4px 8px;font-size:11px}
+/* product preview in popup */
+#mPreview{margin:10px 0;border:1px dashed #e5e7eb;padding:6px;border-radius:10px;display:flex;justify-content:center;background:#fafafa}
+#mPreview .etiket{transform-origin:top left;transform:scale(.8)}
+/* cart filter */
+.cartFilter{display:flex;gap:8px;align-items:center;margin:8px 0}
+
 </style>
 </head>
 <body>
@@ -89,6 +110,8 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       </div>
       <div class="control">
         <button id="btnCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
+        <button id="btnSaveCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-floppy-disk"></i> Sepeti Kaydet</button>
+        <button id="btnRecent" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Gün</button>
         <button id="btnPrint" class="btn success" style="font-size:16px"><i class="fa-solid fa-print"></i> Yazdır</button>
         <button id="btnCam" class="btn primary" style="font-size:16px">
           <i class="fa-solid fa-camera"></i> Kamera Aç
@@ -127,12 +150,9 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     <div class="mini barcodeBig">Barkod: <span id="mBarcode"></span></div>
     <div class="mini" id="mDateRow">Fiyat Değişiklik Tarihi: <span id="mDate"></span></div>
     <div id="mOld" class="warn" style="display:none">⚠️ Fiyat değişiklik tarihi 12 aydan eski! Yöneticinize bilgi verin.</div>
+    <div id="mPreview"></div>
     <div class="actions">
       <button class="btn" data-qty="1">1 Adet</button>
-      <button class="btn" data-qty="2">2 Adet</button>
-      <button class="btn" data-qty="3">3 Adet</button>
-      <button class="btn" data-qty="5">5 Adet</button>
-      <button class="btn" data-qty="10">10</button>
       <button class="btn" id="btnCustom"><i class="fa-solid fa-plus"></i> Özel</button>
       <button class="btn danger" id="btnCancel">İptal</button>
     </div>
@@ -143,6 +163,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 <div id="mdlCart" class="modal">
   <div class="box">
     <h3>Sepet</h3>
+    <div class="cartFilter"><label><input type="checkbox" id="chkOldOnly"> Sadece eski fiyatlı ürünleri göster</label></div>
     <div id="cartList" class="list"></div>
     <div class="cartTotal mini">Toplam: <span id="cartTotalLbl">0</span> etiket</div>
     <div class="actions" style="justify-content:space-between">
@@ -173,6 +194,43 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     <div class="actions" style="justify-content:flex-end">
       <button id="btnPdfOldCancel" class="btn">Kapat</button>
       <button id="btnPdfOldSave" class="btn success">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Eski fiyatlı uyarı modal -->
+<div id="mdlOldWarn" class="modal warn">
+  <div class="box">
+    <h3>⚠️ Eski Fiyatlı Ürünler Var</h3>
+    <div class="bigwarn"><i class="fa-solid fa-triangle-exclamation"></i> Listenizde eski fiyatlı ürünler var. Lütfen yöneticinize bu <b>Eski Fiyatlı Ürünler PDF</b>'ini gönderin.</div>
+    <div class="mini" style="margin-top:8px">Paylaşım ekranını açtıktan sonra ana etiket PDF önizlemeye geçeceğiz.</div>
+    <div class="actions" style="justify-content:flex-end;margin-top:12px">
+      <button id="btnOldWarnCancel" class="btn">İptal</button>
+      <button id="btnOldWarnShare" class="btn success"><i class="fa-solid fa-share-nodes"></i> PDF'yi Paylaş</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sepet QR modal -->
+<div id="mdlQR" class="modal qr">
+  <div class="box">
+    <h3>Sepeti QR ile Paylaş</h3>
+    <div class="qrArea"><div id="qrBox"></div></div>
+    <div class="actions" style="justify-content:flex-end;margin-top:12px">
+      <button id="btnQRClose" class="btn">Kapat</button>
+      <button id="btnQRShare" class="btn success"><i class="fa-solid fa-share"></i> Paylaş</button>
+    </div>
+  </div>
+</div>
+
+<!-- Son 10 gün modal -->
+<div id="mdlRecent" class="modal">
+  <div class="box" style="width:min(92vw,720px)">
+    <h3>Son 10 Günde Fiyatı Değişenler</h3>
+    <div id="recentList"></div>
+    <div class="actions" style="justify-content:flex-end;margin-top:12px">
+      <button id="btnRecentClose" class="btn">Kapat</button>
     </div>
   </div>
 </div>
@@ -266,6 +324,57 @@ document.getElementById('btnFetchSheets').addEventListener('click', ()=>{
 });
 
 
+
+/* ===== HELPERS (share, download, date) ===== */
+function ddmmyyyy_hhmm(d){
+  try{
+    const dt = (d instanceof Date) ? d : new Date(d);
+    const dd = String(dt.getDate()).padStart(2,'0');
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const yy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2,'0');
+    const mi = String(dt.getMinutes()).padStart(2,'0');
+    return `${dd}.${mm}.${yy} ${hh}:${mi}`;
+  }catch(_){ return '—'; }
+}
+async function shareBlob(filename, blob){
+  try{
+    const file = new File([blob], filename, {type: 'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({ files:[file], title: filename, text: filename });
+      return true;
+    }else if(navigator.share){
+      // Some browsers only support URLs
+      const url = URL.createObjectURL(blob);
+      await navigator.share({ title: filename, url });
+      URL.revokeObjectURL(url);
+      return true;
+    }
+  }catch(e){ /* fall back */ }
+  // fallback: download
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  return false;
+}
+function downloadJSON(obj, filename='data.json'){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function askYesNo(msg){
+  return new Promise(res=>{
+    const mdl = document.createElement('div');
+    mdl.className='modal shown'; mdl.innerHTML = `<div class="box"><h3>Onay</h3><div style="margin:6px 0">${msg}</div><div class="actions" style="justify-content:flex-end"><button class="btn" id="__n">Hayır</button><button class="btn success" id="__y">Evet</button></div></div>`;
+    document.body.appendChild(mdl);
+    mdl.querySelector('#__n').onclick=()=>{ mdl.remove(); res(false); };
+    mdl.querySelector('#__y').onclick=()=>{ mdl.remove(); res(true); };
+  });
+}
+
 /* ===== CART ===== */
 function setCart(n){ CART=n; localStorage.setItem('etiket_cart',JSON.stringify(CART)); cartCount.textContent=CART.reduce((a,x)=>a+x.qty,0); }
 setCart(CART);
@@ -288,7 +397,7 @@ $('fileExcel').addEventListener('change', (ev)=>{
 });
 
 /* ===== SEARCH (manuel) ===== */
-function isOld(p){ return p.priceDate ? monthsDiff(new Date(p.priceDate))>12 : false; }
+function isOld(p){ return p.priceDate ? monthsDiff(new Date(p.priceDate))>=12 : false; }
 function showResults(title,arr){ LAST_RESULTS=arr; $('mFilter').textContent=title; $('mCount').textContent=arr.length; const L=$('mList'); L.innerHTML=''; arr.slice(0,200).forEach(p=>{ const li=document.createElement('div'); li.className='item'; li.innerHTML=`<div><div class="nm">${p.name}</div><div class="bc">${p.barcode}</div></div><div>${isOld(p)?'<span class="tag-old">Eski fiyat</span>':''}<span style="font-weight:900;margin-left:8px">${fmtTRY.format(p.price)}</span></div>`; li.onclick=()=>{ $('mdlSearch').classList.remove('shown'); openProduct(p); }; L.appendChild(li); }); $('mdlSearch').classList.add('shown'); }
 function filterByName(q){ const s=q.trim().toLowerCase(); if(s.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.name.toLowerCase().includes(s)); if(res.length) showResults(`Ad: "${q}"`,res); else $('mdlSearch').classList.remove('shown'); }
 function filterByLast6(v){ const t=v.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown'); }
@@ -306,12 +415,15 @@ function openProduct(p){
   $('mDate').textContent = d ? fmtDMY(d) : '—';
   $('mDateRow').style.display=d?'block':'none';
   const old=isOld(p); $('mOld').style.display=old?'block':'none';
+  // preview
+  const prev = document.getElementById('mPreview'); prev.innerHTML=''; prev.appendChild(buildLabelNode(p));
   mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
   $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,old); };
   $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
 }
 function addToCart(p,qty,isOld){
+  if(qty>=10){ if(!confirm('⚠️ Bu üründen '+qty+' adet seçtiniz, emin misiniz?')) return; }
   const idx = CART.findIndex(x => x.barcode === p.barcode);
   if (idx > -1) CART[idx].qty += qty;
   else CART.push({ barcode:p.barcode, name:p.name, price:p.price, isOld:!!isOld, qty });
@@ -322,16 +434,117 @@ function addToCart(p,qty,isOld){
 }
 
 /* ===== CART MODAL ===== */
-function renderCart(){ const L=$('cartList'); L.innerHTML=''; CART.forEach((it,idx)=>{ const row=document.createElement('div'); row.className='cartRow'; row.innerHTML=`<div><div class="cartName">${it.name}</div><div class="mini">${it.barcode} • ${fmtTRY.format(it.price)} ${it.isOld?'<span class="tag-old" style="margin-left:6px">Eski</span>':''}</div></div><div class="qtyCtrl" data-idx="${idx}"><button class="dec">−</button><span>${it.qty}</span><button class="inc">+</button><button class="del" title="Sil"><i class="fa-solid fa-trash"></i></button></div>`; L.appendChild(row); }); $('cartTotalLbl').textContent=CART.reduce((a,x)=>a+x.qty,0); }
+function renderCart(){
+  const oldOnly = !!JSON.parse(localStorage.getItem('etiket_cart_filter_old')||'false');
+  const chk = document.getElementById('chkOldOnly');
+  if(chk) chk.checked = oldOnly;
+  const L=$('cartList'); L.innerHTML='';
+  (oldOnly ? CART.filter(x=>x.isOld) : CART).forEach((it,idx)=>{
+    const row=document.createElement('div'); row.className='cartRow';
+    row.innerHTML=`<div><div class="cartName">${it.name}</div><div class="mini">${it.barcode} • ${fmtTRY.format(it.price)} ${it.isOld?'<span class="tag-old" style="margin-left:6px">Eski</span>':''}</div></div><div class="qtyCtrl" data-idx="${idx}"><button class="dec">−</button><span>${it.qty}</span><button class="inc">+</button><button class="del" title="Sil"><i class="fa-solid fa-trash"></i></button></div>`;
+    L.appendChild(row);
+  });
+  $('cartTotalLbl').textContent=CART.reduce((a,x)=>a+x.qty,0);
+}
 $('btnCart').addEventListener('click', ()=>{ renderCart(); $('mdlCart').classList.add('shown'); });
+$('chkOldOnly').addEventListener('change', (e)=>{
+  localStorage.setItem('etiket_cart_filter_old', JSON.stringify(!!e.target.checked));
+  renderCart();
+});
 $('btnCartClose').addEventListener('click', ()=> $('mdlCart').classList.remove('shown'));
 $('btnCartClear').addEventListener('click', ()=>{ if(confirm('Sepeti tamamen temizle?')){ setCart([]); renderCart(); } });
 $('btnCartPrint').addEventListener('click', ()=>{ $('mdlCart').classList.remove('shown'); $('btnPrint').click(); });
+('click', ()=>{ renderCart(); $('mdlCart').classList.add('shown'); });
+$('btnCartClose').addEventListener('click', ()=> $('mdlCart').classList.remove('shown'));
+$('btnCartClear').addEventListener('click', ()=>{ if(confirm('Sepeti tamamen temizle?')){ setCart([]); renderCart(); } });
+$('btnCartPrint').addEventListener('click', ()=>{ $('mdlCart').classList.remove('shown'); $('btnPrint').click(); });
+
+
+/* ===== CART SAVE & QR ===== */
+$('btnSaveCart').addEventListener('click', async ()=>{
+  const yes = await askYesNo('QR kod oluşturup paylaşmak ister misiniz?');
+  if(yes){
+    const mdl = $('mdlQR'); const box = $('qrBox'); box.innerHTML='';
+    const payload = { cart: CART, at: new Date().toISOString() };
+    const txt = JSON.stringify(payload);
+    new QRCode(box, { text: txt, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    mdl.classList.add('shown');
+    $('btnQRClose').onclick=()=> mdl.classList.remove('shown');
+    $('btnQRShare').onclick=()=>{
+      const blob = new Blob([txt], {type:'application/json'});
+      shareBlob('sepet.json', blob);
+    };
+  }else{
+    downloadJSON(CART, 'sepet.json');
+  }
+});
+
+/* Auto-download on unload if there is a cart */
+window.addEventListener('beforeunload', (e)=>{
+  try{
+    const hasCart = (CART||[]).length>0;
+    if(hasCart){
+      // Best-effort: trigger a download
+      const blob = new Blob([JSON.stringify(CART, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download='data.json';
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+  }catch(_){}
+});
 
 $('cartList').addEventListener('click', (e)=>{ const ctr=e.target.closest('.qtyCtrl'); if(!ctr)return; const idx=+ctr.dataset.idx; if(e.target.classList.contains('inc')) CART[idx].qty++; else if(e.target.classList.contains('dec')) CART[idx].qty=Math.max(1,CART[idx].qty-1); else if(e.target.classList.contains('del')) CART.splice(idx,1); setCart(CART); renderCart(); });
 
 /* ===== FX SWITCH ===== */
 $('toggleFx').checked=!!FX; $('toggleFx').addEventListener('change', ()=>{ FX=$('toggleFx').checked; localStorage.setItem('etiket_fx',JSON.stringify(FX)); });
+
+
+/* ===== RECENT 10 DAYS ===== */
+function daysDiff(d){ return ((new Date()) - d)/(1000*60*60*24); }
+function groupRecent(items){
+  const map = new Map();
+  items.forEach(p=>{
+    const key = `${p.name}@@${p.price}`;
+    if(!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
+  });
+  return Array.from(map.entries()).map(([k, arr])=>{
+    const [name, price] = k.split('@@');
+    return { name, price: parseFloat(price), items: arr };
+  });
+}
+$('btnRecent').addEventListener('click', ()=>{
+  const ten = (PRODUCTS||[]).filter(p=> p.priceDate && daysDiff(new Date(p.priceDate))<=10 );
+  const groups = groupRecent(ten);
+  const host = $('recentList'); host.innerHTML='';
+  if(groups.length===0){ host.innerHTML='<div class="mini">Son 10 günde fiyatı değişen ürün bulunmadı.</div>'; }
+  groups.forEach((g,gi)=>{
+    const card = document.createElement('div'); card.className='groupCard';
+    const head = document.createElement('div'); head.className='groupHead';
+    const title = document.createElement('div'); title.innerHTML = `<b>${g.name}${g.items.length>1?' (VE RENKLERİ)':''}</b> <span class="badge2">${g.items.length} varyant • ${fmtTRY.format(g.price)}</span>`;
+    const toggle = document.createElement('button'); toggle.className='btn neutral'; toggle.textContent='Göster';
+    head.appendChild(title); head.appendChild(toggle);
+    const body = document.createElement('div'); body.className='groupItems'; body.id='grp_'+gi;
+    g.items.forEach((p,pi)=>{
+      const row = document.createElement('div'); row.className='groupItem';
+      row.innerHTML = `<div>${p.barcode}</div><div><button class="btn" data-gi="${gi}" data-pi="${pi}"><i class="fa-solid fa-plus"></i> Seç</button></div>`;
+      body.appendChild(row);
+    });
+    card.appendChild(head); card.appendChild(body); host.appendChild(card);
+    toggle.onclick = ()=>{
+      const opened = body.style.display==='block';
+      body.style.display = opened?'none':'block';
+      toggle.textContent = opened?'Göster':'Gizle';
+    };
+    body.addEventListener('click', (e)=>{
+      const b = e.target.closest('button.btn'); if(!b) return;
+      const p = g.items[parseInt(b.dataset.pi)]; if(p) openProduct(p);
+    });
+  });
+  $('mdlRecent').classList.add('shown');
+});
+$('btnRecentClose').addEventListener('click', ()=> $('mdlRecent').classList.remove('shown'));
 
 /* ===== LABEL TEMPLATE (kısaltılmış) ===== */
 const labelCSS = `#etiketler{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.etiket{background:#fff;width:260px;height:100px;border-radius:14px;box-shadow:0 1px 6px #d7d7db55;display:flex;flex-direction:row;align-items:flex-start;padding:12px 12px 8px 6px;box-sizing:border-box;position:relative}.etiket-logo{width:60px;height:78px;margin-right:5px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:flex-start}.etiket-logo img{width:100%;height:100%;object-fit:contain}.etiket-icerik{flex:1;display:flex;flex-direction:column;justify-content:space-between;height:100%}.etiket-stokadi{font-size:12px;font-weight:500;color:#2e2e2e;line-height:1.1;min-height:36px;max-height:32px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.etiket-row{display:flex;align-items:flex-end;justify-content:flex-end;gap:4px}.etiket-fiyat{font-size:24px;color:#e20032;font-weight:650;letter-spacing:1px;margin:0;display:flex;align-items:flex-end;gap:2px;min-width:52px;justify-content:flex-end}.etiket-fiyat .tlsimge{font-size:14px;margin-left:1px}.etiket-barkod{width:72px;height:45px;display:flex;flex-direction:column;align-items:flex-end}.etiket-barkod img{width:100%;height:36px;object-fit:contain}`;
@@ -355,24 +568,55 @@ function buildLabelNode(it) {
 /* ===== PRINT: ÖNİZLEME + KAYDET + ESKİ LİSTE ===== */
 $('btnPrint').addEventListener('click', async ()=>{
   if(CART.length===0){ alert('Sepet boş.'); return; }
-  __docLabels = await makeLabelsDoc();
-  const blob = __docLabels.output('blob');
-  if (__urlLabels) URL.revokeObjectURL(__urlLabels);
-  __urlLabels = URL.createObjectURL(blob);
-  $('pdfFrame').src = __urlLabels;
-  $('mdlPdf').classList.add('shown');
+  const oldCount = CART.reduce((a,x)=>a+(x.isOld?x.qty:0),0);
+  if(oldCount>0){
+    // prepare old pdf first and show warn
+    __docOld = await makeOldListDoc();
+    const blobOld = __docOld.output('blob');
+    if (__urlOld) URL.revokeObjectURL(__urlOld);
+    __urlOld = URL.createObjectURL(blobOld);
+    $('mdlOldWarn').classList.add('shown');
+    $('btnOldWarnCancel').onclick = ()=> $('mdlOldWarn').classList.remove('shown');
+    $('btnOldWarnShare').onclick = async ()=>{
+      await shareBlob(`eski_fiyatli_${new Date().toISOString().slice(0,10)}.pdf`, blobOld);
+      $('mdlOldWarn').classList.remove('shown');
+      // log share
+      try{
+        const logs = JSON.parse(localStorage.getItem('etiket_old_sent_logs')||'[]');
+        logs.push({ at: new Date().toISOString(), count: oldCount });
+        localStorage.setItem('etiket_old_sent_logs', JSON.stringify(logs));
+      }catch(_){}
+      // then proceed to labels preview
+      __docLabels = await makeLabelsDoc();
+      const blob = __docLabels.output('blob');
+      if (__urlLabels) URL.revokeObjectURL(__urlLabels);
+      __urlLabels = URL.createObjectURL(blob);
+      $('pdfFrame').src = __urlLabels;
+      $('mdlPdf').classList.add('shown');
+    };
+  }else{
+    // no old items -> directly preview labels
+    __docLabels = await makeLabelsDoc();
+    const blob = __docLabels.output('blob');
+    if (__urlLabels) URL.revokeObjectURL(__urlLabels);
+    __urlLabels = URL.createObjectURL(blob);
+    $('pdfFrame').src = __urlLabels;
+    $('mdlPdf').classList.add('shown');
+  }
 });
 $('btnPdfCancel').addEventListener('click', ()=> $('mdlPdf').classList.remove('shown'));
 $('btnPdfSave').addEventListener('click', async ()=>{
   __docLabels.save(`etiketler_${new Date().toISOString().slice(0,10)}.pdf`);
   $('mdlPdf').classList.remove('shown');
-  // ESKİ LİSTE
-  __docOld = await makeOldListDoc();
-  const blobOld = __docOld.output('blob');
-  if (__urlOld) URL.revokeObjectURL(__urlOld);
-  __urlOld = URL.createObjectURL(blobOld);
-  $('pdfOldFrame').src = __urlOld;
-  $('mdlPdfOld').classList.add('shown');
+  // print counter
+  try{
+    const total = CART.reduce((a,x)=>a+x.qty,0);
+    let since = localStorage.getItem('etiket_print_since');
+    if(!since){ since = new Date().toISOString(); localStorage.setItem('etiket_print_since', since); }
+    let cnt = parseInt(localStorage.getItem('etiket_print_total')||'0',10);
+    cnt += total;
+    localStorage.setItem('etiket_print_total', String(cnt));
+  }catch(_){}
 });
 $('btnPdfOldCancel').addEventListener('click', ()=> $('mdlPdfOld').classList.remove('shown'));
 $('btnPdfOldSave').addEventListener('click', ()=>{
@@ -407,7 +651,16 @@ async function makeLabelsDoc(){
   }
 
   const total=CART.reduce((a,x)=>a+x.qty,0), oldCount=CART.reduce((a,x)=>a+(x.isOld?x.qty:0),0);
-  doc.setFontSize(12); doc.text(`Toplam ${total} etiket  •  Eski fiyatlı: ${oldCount}`, A4W/2, A4H-5, {align:'center'});
+  doc.setFontSize(12);
+  let sinceTxt = localStorage.getItem('etiket_print_since');
+  let cntTxt = localStorage.getItem('etiket_print_total');
+  if(!sinceTxt){ sinceTxt = new Date().toISOString(); localStorage.setItem('etiket_print_since', sinceTxt); }
+  if(!cntTxt){ cntTxt = '0'; localStorage.setItem('etiket_print_total', '0'); }
+  const sinceStr = ddmmyyyy_hhmm(new Date(sinceTxt));
+  const line1 = `Toplam: ${total} etiket  •  Eski fiyatlı: ${oldCount}`;
+  const line2 = `${sinceStr}’den beri ${cntTxt} etiket basıldı.`;
+  doc.text(line1, A4W/2, A4H-9, {align:'center'});
+  doc.text(line2, A4W/2, A4H-5, {align:'center'});
   return doc;
 }
 
@@ -434,7 +687,7 @@ async function makeOldListDoc(){
     const left=document.createElement('div');
     left.innerHTML=`<div style="font-weight:800">${it.name}</div><div style="color:#475569;font-family:Arial">${it.barcode}</div>`;
     const right=document.createElement('div');
-    right.innerHTML=`<img src="${png}" alt="barkod" style="height:36px">`;
+    right.innerHTML=`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><img src="${png}" alt="barkod" style="height:36px"><div style="font-size:12px;color:#1f2937">FD: ${fmtDMY(new Date(it.priceDate))} • ${fmtTRY.format(it.price)}</div></div>`;
 
     row.appendChild(left); row.appendChild(right); list.appendChild(row);
   });
@@ -458,7 +711,27 @@ async function makeOldListDoc(){
   // Katman
   const sheetEl = document.createElement('div');
   sheetEl.id= SHEET_ID;
-  sheetEl.innerHTML = '<style>#camSheet{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:none}#camBox{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(96vw,720px);background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden}#camHead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb}#camMount{position:relative;width:100%;height:380px;background:#000}#camMount video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#camFoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#fafafa}</style><div id="camBox"><div id="camHead"><b>Kamera</b><div><button id="camClose" class="btn">Kapat</button></div></div><div id="camMount"><video id="camVideo" autoplay playsinline muted></video></div><div id="camFoot"><button id="camStop" class="btn">Durdur</button></div></div>';
+  sheetEl.innerHTML = '<style>#camSheet{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:none}#camBox{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(96vw,720px);background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden}#camHead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb}#camMount{position:relative;width:100%;height:380px;background:#000}#camMount video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#camFoot{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#fafafa}
+/* extra modals */
+.modal.warn .box{background:#fff1f2;border-color:#fecdd3}
+.modal.warn .box h3{color:#b91c1c}
+.modal.warn .box .bigwarn{background:#fee2e2;border:2px solid #ef4444;color:#7f1d1d;padding:12px;border-radius:12px;font-size:16px;font-weight:900;display:flex;gap:8px;align-items:flex-start}
+.modal.qr .box{background:#f0f9ff;border-color:#bae6fd}
+.qrArea{display:flex;align-items:center;justify-content:center;padding:12px;border:1px dashed #93c5fd;border-radius:12px;background:#fff}
+.qrArea canvas{max-width:260px;height:auto}
+/* recent modal */
+.groupCard{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff}
+.groupHead{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.groupItems{margin-top:8px;display:none}
+.groupItem{display:flex;justify-content:space-between;align-items:center;border:1px dashed #e2e8f0;border-radius:10px;padding:8px;margin-top:6px}
+.badge2{display:inline-flex;gap:6px;align-items:center;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:999px;padding:4px 8px;font-size:11px}
+/* product preview in popup */
+#mPreview{margin:10px 0;border:1px dashed #e5e7eb;padding:6px;border-radius:10px;display:flex;justify-content:center;background:#fafafa}
+#mPreview .etiket{transform-origin:top left;transform:scale(.8)}
+/* cart filter */
+.cartFilter{display:flex;gap:8px;align-items:center;margin:8px 0}
+
+</style><div id="camBox"><div id="camHead"><b>Kamera</b><div><button id="camClose" class="btn">Kapat</button></div></div><div id="camMount"><video id="camVideo" autoplay playsinline muted></video></div><div id="camFoot"><button id="camStop" class="btn">Durdur</button></div></div>';
   document.body.appendChild(sheetEl);
   const camSheet = sheetEl, camMount=document.getElementById('camMount');
   const camCloseBtn = document.getElementById('camClose');
@@ -512,6 +785,7 @@ async function makeOldListDoc(){
       { video: true }
     ];
     const c = variants[Math.min(variant, variants.length-1)];
+    c.video.advanced = [{torch:false}];
     return await navigator.mediaDevices.getUserMedia(c);
   }
 
@@ -550,7 +824,7 @@ async function makeOldListDoc(){
     if(canBD){
       try{
         const supported = await BarcodeDetector.getSupportedFormats();
-        const wanted = ['ean-13','ean-8','upc-a','upc-e','code-128','code-39'];
+        const wanted = ['ean-13','upc-a'];
         const fmts = supported.filter(f => wanted.includes(f));
         engine='bd';
         bdDetector = new BarcodeDetector({formats: fmts.length?fmts:undefined});
@@ -746,7 +1020,27 @@ async function makeOldListDoc(){
   // Katman
   const sheetEl = document.createElement('div');
   sheetEl.id= SHEET_ID;
-  sheetEl.innerHTML = '<style>#camSheetIOS{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:none}#camBoxIOS{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(96vw,720px);background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden}#camHeadIOS{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb}#camMountIOS{position:relative;width:100%;height:380px;background:#000}#camMountIOS video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#camFootIOS{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#fafafa}</style><div id="camBoxIOS"><div id="camHeadIOS"><b>Kamera (iOS)</b><div><button id="camCloseIOS" class="btn">Kapat</button></div></div><div id="camMountIOS"><video id="camVideoIOS" autoplay playsinline muted></video></div><div id="camFootIOS"><button id="camStopIOS" class="btn">Durdur</button></div></div>';
+  sheetEl.innerHTML = '<style>#camSheetIOS{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:none}#camBoxIOS{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(96vw,720px);background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden}#camHeadIOS{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb}#camMountIOS{position:relative;width:100%;height:380px;background:#000}#camMountIOS video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#camFootIOS{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#fafafa}
+/* extra modals */
+.modal.warn .box{background:#fff1f2;border-color:#fecdd3}
+.modal.warn .box h3{color:#b91c1c}
+.modal.warn .box .bigwarn{background:#fee2e2;border:2px solid #ef4444;color:#7f1d1d;padding:12px;border-radius:12px;font-size:16px;font-weight:900;display:flex;gap:8px;align-items:flex-start}
+.modal.qr .box{background:#f0f9ff;border-color:#bae6fd}
+.qrArea{display:flex;align-items:center;justify-content:center;padding:12px;border:1px dashed #93c5fd;border-radius:12px;background:#fff}
+.qrArea canvas{max-width:260px;height:auto}
+/* recent modal */
+.groupCard{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff}
+.groupHead{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.groupItems{margin-top:8px;display:none}
+.groupItem{display:flex;justify-content:space-between;align-items:center;border:1px dashed #e2e8f0;border-radius:10px;padding:8px;margin-top:6px}
+.badge2{display:inline-flex;gap:6px;align-items:center;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:999px;padding:4px 8px;font-size:11px}
+/* product preview in popup */
+#mPreview{margin:10px 0;border:1px dashed #e5e7eb;padding:6px;border-radius:10px;display:flex;justify-content:center;background:#fafafa}
+#mPreview .etiket{transform-origin:top left;transform:scale(.8)}
+/* cart filter */
+.cartFilter{display:flex;gap:8px;align-items:center;margin:8px 0}
+
+</style><div id="camBoxIOS"><div id="camHeadIOS"><b>Kamera (iOS)</b><div><button id="camCloseIOS" class="btn">Kapat</button></div></div><div id="camMountIOS"><video id="camVideoIOS" autoplay playsinline muted></video></div><div id="camFootIOS"><button id="camStopIOS" class="btn">Durdur</button></div></div>';
   document.body.appendChild(sheetEl);
   const camSheet = sheetEl;
   const camMount = document.getElementById('camMountIOS');
@@ -827,7 +1121,7 @@ async function makeOldListDoc(){
     if(canBD){
       try{
         const fmts = await BarcodeDetector.getSupportedFormats();
-        const wanted = ['ean-13','ean-8','upc-a','upc-e','code-128','code-39'];
+        const wanted = ['ean-13','upc-a'];
         const use = fmts.filter(f=>wanted.includes(f));
         bdDetector = new BarcodeDetector({formats: use.length?use:undefined});
       }catch(_){ canBD=false; }
@@ -870,7 +1164,9 @@ async function makeOldListDoc(){
         await new Promise((res,rej)=>{ s.onload=res; s.onerror=rej; });
         document.head.appendChild(s);
       }
-      const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
+      const hints = new Map();
+      hints.set(window.ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [window.ZXingBrowser.BarcodeFormat.EAN_13, window.ZXingBrowser.BarcodeFormat.UPC_A]);
+      const reader = new window.ZXingBrowser.BrowserMultiFormatReader(hints);
       const v = getVideo();
       const tr = (v.srcObject && v.srcObject.getVideoTracks && v.srcObject.getVideoTracks()[0]) || null;
       const deviceId = tr && tr.getSettings && tr.getSettings().deviceId;
