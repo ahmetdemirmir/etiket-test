@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fiyat Gör Etiket Bas — Light + Eski Popup (FIX: Sheets & Manuel)</title>
+<title>Fiyat Gör Etiket Bas — Fix2 (Fiyat & FD Tarihi Doğrulama)</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -21,23 +21,19 @@
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
 a{color:var(--brand);text-decoration:none}
 header{position:sticky;top:0;z-index:5;background:#ffffff;color:#0f172a;display:flex;align-items:center;gap:12px;justify-content:center;padding:12px;border-bottom:1px solid var(--line)}
-header img{height:42px} header h1{margin:0;font-size:1.15rem;font-weight:900;letter-spacing:.5px}
+header h1{margin:0;font-size:1.05rem;font-weight:900;letter-spacing:.4px}
 .wrap{max-width:1100px;margin:auto;padding:18px}
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);padding:16px}
 .control{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .input{flex:1;min-width:220px;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px;border-radius:12px;font-size:15px}
-.input[readonly]{background:#f8fafc;color:#334155}
-.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.15s transform ease}
-.btn:active{transform:translateY(1px)}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 .btn.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff}
-.btn.success{background:linear-gradient(90deg,#059669,#34d399);color:#fff}
 .btn.neutral{background:#fff;border:1px solid var(--line);color:#0f172a}
-.btn.danger{background:linear-gradient(90deg,#b91c1c,#ef4444);color:#fff}
+.btn.success{background:linear-gradient(90deg,#059669,#34d399);color:#fff}
 .badge{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--line);background:#fff;color:#0f172a;padding:7px 10px;border-radius:999px;font-size:12px}
 small.hint{display:block;color:var(--muted);margin-top:6px}
 
-/* list */
 .list{display:flex;flex-direction:column;gap:8px;max-height:62vh;overflow:auto;margin-top:8px}
 .item{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer}
 .item:hover{background:#f8fafc}
@@ -46,118 +42,66 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .tag-old{border:1px solid rgba(245,158,11,.7);color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px;font-size:11px}
 
 /* modal */
-.modal{position:fixed;inset:0;background:rgba(2,6,23,.25);backdrop-filter:saturate(130%) blur(2px);display:none;align-items:center;justify-content:center;z-index:30}
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.25);display:none;align-items:center;justify-content:center;z-index:30}
 .modal.shown{display:flex}
-.box{width:min(92vw,600px);background:#ffffff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.10)}
+.box{width:min(92vw,680px);background:#ffffff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.10)}
 .box h3{margin:0 0 8px}
 .price{font-size:32px;font-weight:900;color:#0f172a}
 .mini{font-size:12px;color:#475569}
 .warn{background:#fee2e2;border:1px dashed #ef4444;color:#7f1d1d;padding:10px;border-radius:12px;font-weight:800;margin:10px 0}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 
-/* cart modal */
-#mdlCart .list{max-height:60vh}
-.cartRow{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
-.cartName{font-weight:700}
-.qtyCtrl{display:inline-flex;align-items:center;gap:6px}
-.qtyCtrl button{border:1px solid var(--line);background:#fff;color:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer}
-.cartTotal{margin-top:8px;font-weight:800}
-
-/* toast */
-.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:60;border:1px solid #0b1220}
-.toast.show{opacity:0.95}
-
-/* pdf preview */
-.pdfBox{width:min(95vw,920px);height:90vh;display:flex;flex-direction:column}
-.pdfFrame{flex:1;border:1px solid var(--line);border-radius:8px}
+/* diagnostics */
+.kv{display:grid;grid-template-columns:160px 1fr;gap:6px}
+.kv b{color:#0f172a}
+.diagRow{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+.diagHead{font-weight:900;margin-bottom:6px}
 </style>
 </head>
 <body>
-<header>
-  <h1>Fiyat Gör Etiket Bas</h1>
-</header>
+<header><h1>Fiyat Gör Etiket Bas — Fix2</h1></header>
 
 <div class="wrap">
   <div class="card">
     <div class="control" style="justify-content:space-between">
       <div class="control">
         <span id="badgeData" class="badge"><i class="fa-solid fa-database"></i> Veri yüklenmedi</span>
-        <label class="switch"><input id="toggleFx" type="checkbox" checked><span class="switchLabel"> Ses/Titreşim</span></label>
       </div>
       <div class="control">
-        <button id="btnCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
-        <button id="btnSaveCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-download"></i> Sepeti Kaydet / Paylaş</button>
-        <button id="btnPrint" class="btn success" style="font-size:16px"><i class="fa-solid fa-print"></i> Yazdır</button>
-        <button id="btnCam" class="btn primary" style="font-size:16px"><i class="fa-solid fa-camera"></i> Kamera Aç</button>
-        <button id="btnCamIOS" class="btn neutral" style="font-size:16px"><i class="fa-brands fa-apple"></i> Kamera Aç (iOS)</button>
-        <button id="btnChanged10" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Günde Fiyatı Değişenler</button>
+        <button id="btnCart" class="btn neutral"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
+        <button id="btnSaveCart" class="btn neutral"><i class="fa-solid fa-download"></i> Sepeti Kaydet / Paylaş</button>
+        <button id="btnPrint" class="btn success"><i class="fa-solid fa-print"></i> Yazdır</button>
+        <button id="btnDiag" class="btn neutral"><i class="fa-solid fa-magnifying-glass-chart"></i> Veri Kontrol</button>
       </div>
     </div>
 
     <div class="control" style="margin-top:8px">
-      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane" autocomplete="off">
-      <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off">
+      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane">
+      <input id="inpName" class="input" type="text" placeholder="Ürün adı">
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv">
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
     </div>
-    <small class="hint">**FIX**: Google Sheets ve manuel Excel/CSV yükleme tekrar aktif. Popup eski düzen, tema açık.</small>
+    <small class="hint">Bu sürümde **fiyat** ve **FD tarihi** parse işlemi güçlendirildi (TR/EN biçimleri, nokta/virgül, Excel seri günleri, saat). Ayrıca ilk 5 satır için “Veri Kontrol” ekranı var.</small>
   </div>
 </div>
 
-<!-- Search modal -->
-<div id="mdlSearch" class="modal">
+<!-- diagnostics -->
+<div id="mdlDiag" class="modal">
   <div class="box">
-    <h3>Filtrelenen Ürünler</h3>
-    <div class="mini">Filtre: <span id="mFilter"></span> — <span id="mCount">0</span> sonuç</div>
-    <div id="mList" class="list"></div>
-    <div class="actions" style="justify-content:flex-end"><button id="btnSearchClose" class="btn">Kapat</button></div>
+    <h3>Veri Kontrol (İlk 5 Satır)</h3>
+    <div id="diagWrap" class="list"></div>
+    <div class="actions" style="justify-content:flex-end"><button id="btnDiagClose" class="btn">Kapat</button></div>
   </div>
 </div>
 
-<!-- Old price warn -->
-<div id="mdlOldWarn" class="modal">
-  <div class="box">
-    <h3>⚠️ Eski Fiyatlı Ürünler Var</h3>
-    <div class="warn">Listenizde 12 ay ve üzeri fiyatlı ürünler var. Bu ürünlerin PDF'i oluşturulup <b>yöneticinize PAYLAŞILACAKTIR</b>.</div>
-    <div class="mini">Devam ederseniz önce normal etiket PDF’i hazırlanır; ardından eski fiyatlı ürünlerin PDF’i <b>doğrudan paylaş</b> ekranına gönderilir.</div>
-    <div class="actions" style="justify-content:flex-end">
-      <button id="btnOldCancel" class="btn">Vazgeç</button>
-      <button id="btnOldOk" class="btn success">Tamam, Devam Et</button>
-    </div>
-  </div>
-</div>
-
-<!-- QR Share -->
-<div id="mdlQR" class="modal">
-  <div class="box">
-    <h3>Sepeti Paylaş</h3>
-    <div class="mini">QR kodu taratarak sepetteki ürünleri başka cihazla paylaşabilirsiniz.</div>
-    <div id="qrArea" style="display:flex;justify-content:center;margin:10px 0"></div>
-    <div class="actions" style="justify-content:flex-end">
-      <button id="btnQRClose" class="btn">Kapat</button>
-      <button id="btnQRShare" class="btn success"><i class="fa-solid fa-share-from-square"></i> Paylaş</button>
-    </div>
-  </div>
-</div>
-
-<!-- Changed last 10 days -->
-<div id="mdlChanged" class="modal">
-  <div class="box" style="width:min(92vw,800px)">
-    <h3>Son 10 Günde Fiyatı Değişenler</h3>
-    <div id="changedWrap" class="list"></div>
-    <div class="actions" style="justify-content:flex-end"><button id="btnChangedClose" class="btn">Kapat</button></div>
-  </div>
-</div>
-
-<!-- Product popup (old style) -->
+<!-- product popup (old style) -->
 <div id="mdlProduct" class="modal">
   <div class="box">
     <h3 id="mName">Ürün Adı</h3>
     <div class="price" id="mPrice">₺0,00</div>
     <div class="mini">Barkod: <span id="mBarcode"></span></div>
     <div class="mini" id="mDateRow">Fiyat Değişiklik Tarihi: <span id="mDate"></span></div>
-    <div id="mOld" class="warn" style="display:none">⚠️ Fiyat değişiklik tarihi 12 aydan eski! Yöneticinize bilgi verin.</div>
-
+    <div id="mOld" class="warn" style="display:none">⚠️ Fiyat değişiklik tarihi 12 aydan eski!</div>
     <div class="actions">
       <button class="btn" data-qty="1">1</button>
       <button class="btn" data-qty="2">2</button>
@@ -165,468 +109,236 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       <button class="btn" data-qty="5">5</button>
       <button class="btn" data-qty="10">10</button>
       <button class="btn" id="btnCustom"><i class="fa-solid fa-plus"></i> Özel</button>
-      <button class="btn danger" id="btnCancel">İptal</button>
+      <button class="btn" id="btnCancel">İptal</button>
     </div>
   </div>
 </div>
 
-<!-- Cart modal -->
-<div id="mdlCart" class="modal">
-  <div class="box">
-    <h3>Sepet</h3>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <input type="checkbox" id="chkOldOnly">
-      <label for="chkOldOnly" class="mini">Sadece eski fiyatlı ürünleri göster</label>
-    </div>
-    <div id="cartList" class="list"></div>
-    <div class="cartTotal mini">Toplam: <span id="cartTotalLbl">0</span> etiket</div>
-    <div class="actions" style="justify-content:space-between">
-      <button id="btnCartClear" class="btn danger"><i class="fa-solid fa-trash"></i> Hepsini Temizle</button>
-      <div>
-        <button id="btnCartClose" class="btn">Kapat</button>
-        <button id="btnCartPrint" class="btn success"><i class="fa-solid fa-print"></i> Yazdır (PDF)</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- PDF preview -->
-<div id="mdlPdf" class="modal">
-  <div class="box pdfBox">
-    <h3>Önizleme — Etiketler</h3>
-    <iframe id="pdfFrame" class="pdfFrame"></iframe>
-    <div class="actions" style="justify-content:flex-end">
-      <button id="btnPdfCancel" class="btn">İptal</button>
-      <button id="btnPdfSave" class="btn success">Kaydet ve Devam Et</button>
-    </div>
-  </div>
-</div>
-
-<div id="toast" class="toast">Veri yüklendi</div>
+<!-- simple toasts -->
+<div id="toast" style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:40">ok</div>
 <div id="work" style="position:fixed;left:-9999px;top:-9999px;opacity:0"></div>
 
 <script>
-/*** ====== STATE ====== ***/
-let PRODUCTS=[]; let CART=JSON.parse(localStorage.getItem('etiket_cart')||'[]'); let LAST_RESULTS=[];
-let FX=JSON.parse(localStorage.getItem('etiket_fx')||'true');
-const IS_DESKTOP = window.matchMedia('(pointer: fine)').matches && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-let __docLabels=null, __urlLabels=null, __oldBlob=null, __oldFileName=null;
-
+/* ========= UTIL ========= */
 const $=id=>document.getElementById(id);
-const inpBarcode=$('inpBarcode'), inpName=$('inpName'), cartCount=$('cartCount'), badgeData=$('badgeData');
 const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:2});
+const toast=(t)=>{const el=$('toast');el.textContent=t;el.style.opacity=0.95;setTimeout(()=>el.style.opacity=0,1400);};
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
-const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);};
-const beep=(ok=true)=>{ if(!FX) return; try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();o.type='sine';o.frequency.value=ok?880:220;const g=a.createGain();g.gain.setValueAtTime(0.04,a.currentTime);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+0.12);}catch(e){} if(navigator.vibrate) navigator.vibrate(ok?[100]:[80,60,80]); };
-const refocusAfterAction=(clear=false)=>{ if(IS_DESKTOP){ if(clear){ inpBarcode.value=''; inpName.value=''; } inpBarcode.focus(); inpBarcode.select(); } };
+const fmtDMY=(d)=>{try{const dt=d instanceof Date?d:new Date(d); if(isNaN(dt))return'—'; return dt.toLocaleDateString('tr-TR')+(dt.getHours()?(' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')):'');}catch(_){return'—';}};
 
-function fmtDMY(d){ try{ const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return'—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`; }catch(_){ return '—'; } }
-
-/*** ====== NORMALIZE HELPERS ====== ***/
-function fromSci(str){ const s=String(str).toLowerCase(); const m=s.match(/^(\d+(?:\.\d+)?)e\+(\d+)$/); if(!m) return String(str); const d=m[1].replace('.',''); const dec=(m[1].split('.')[1]||'').length; const exp=+m[2]; return d+'0'.repeat(Math.max(0,exp-dec)); }
-function parseBarcode(v){
-  if(v===undefined||v===null) return '';
-  if(typeof v==='number'){ const s=String(v); return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,''); }
-  return String(v).trim().replace(/[^0-9]/g,'');
-}
+/* ===== Robust Price Parser (TR/EN) =====
+  Kabul edilen örnekler:
+  1.234,50  |  1,234.50  |  1234,5  |  1 234,50  |  ₺1.234,50  |  1234.50  |  1.234
+*/
 function parsePrice(v){
   if(v===undefined||v===null||v==='') return 0;
   if(typeof v==='number') return v;
-  let s = String(v).replace(/[₺\s]/g,'').replace(/\u00A0/g,'');
-  if(s.includes(',') && s.includes('.')){
+  let s = String(v).trim();
+  // currency symbols & spaces
+  s = s.replace(/[₺₤₫€$£\s\u00A0]/g,'');
+  // normalize thousands/decimal
+  // Case A: 1.234,56  (TR)
+  if(/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)){
     s = s.replace(/\./g,'').replace(',', '.');
-  } else if(s.includes(',')){
-    s = s.replace(',', '.');
+    return parseFloat(s)||0;
   }
-  const n = parseFloat(s);
-  return Number.isNaN(n) ? 0 : n;
+  // Case B: 1,234.56 (EN)
+  if(/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(s)){
+    s = s.replace(/,/g,'');
+    return parseFloat(s)||0;
+  }
+  // Case C: 1234,5  -> 1234.5
+  if(/^\d+,\d{1,2}$/.test(s)){
+    s = s.replace(',', '.');
+    return parseFloat(s)||0;
+  }
+  // Case D: 1234.56  or integer with dots as thousands 1.234.567
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const parts = s.split('.');
+    if(parts.length>2){ // thousands dots
+      s = parts.join('');
+      return parseFloat(s)||0;
+    }
+    return parseFloat(s)||0;
+  }
+  // Case E: 1,234  (comma as thousands)
+  if(/^\d{1,3}(,\d{3})+$/.test(s)){
+    s = s.replace(/,/g,'');
+    return parseFloat(s)||0;
+  }
+  // Fallback: remove non-digits except last [, .] as decimal
+  const m = s.match(/(\d+[.,]?\d*)/);
+  if(m){ return parsePrice(m[1]); }
+  return 0;
 }
-function parseExcelDate(v){
-  if(!v&&v!==0) return null;
+
+/* ===== Robust Date Parser (FD) =====
+  Desteklenen biçimler:
+  - Excel seri sayısı (num)
+  - 2025-08-18 veya 2025-08-18 14:42
+  - 18.08.2025, 18/08/2025, 18-08-2025 (+ opsiyonel saat)
+*/
+function excelSerialToDate(n){
+  const epoch = new Date(Date.UTC(1899,11,30)); // Excel base
+  const ms = Math.round(n*86400000);
+  return new Date(epoch.getTime()+ms);
+}
+function parseFD(v){
+  if(v===undefined||v===null||v==='') return null;
   if(v instanceof Date && !isNaN(v)) return v;
-  if(typeof v==='number'){ const epoch=new Date(1899,11,30); return new Date(epoch.getTime()+v*86400000); }
-  const str=String(v).trim();
-  const m=str.match(/(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
-  if(m){ const d=new Date(+m[3],+m[2]-1,+m[1]); if(!isNaN(d)) return d; }
-  if(/^\d{4}-\d{2}-\d{2}/.test(str)){ const d=new Date(str); if(!isNaN(d)) return d; }
-  return null;
+  if(typeof v==='number'){ return excelSerialToDate(v); }
+  let s = String(v).trim();
+  // strip extra quotes
+  s = s.replace(/^'+|'+$/g,'');
+  // ISO
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const d=new Date(s.replace(' ', 'T'));
+    return isNaN(d)?null:d;
+  }
+  // TR: dd.mm.yyyy [hh:mm[:ss]]
+  let m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if(m){
+    const DD=+m[1], MM=+m[2]-1, YY=+m[3]<100?2000+(+m[3]):+m[3];
+    const hh=+(m[4]||0), mi=+(m[5]||0), ss=+(m[6]||0);
+    const d = new Date(YY,MM,DD,hh,mi,ss);
+    return isNaN(d)?null:d;
+  }
+  // Fallback: Date() try
+  const d2 = new Date(s);
+  return isNaN(d2)?null:d2;
 }
-function normKey(s){return String(s||'').toLowerCase().replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u').replace(/[ğĞ]/g,'g').replace(/[şŞ]/g,'s').replace(/[çÇ]/g,'c').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
+
+/* ===== Column Mapping (genişletildi) ===== */
+function normKey(s){return String(s||'').toLowerCase()
+  .replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u').replace(/[ğĞ]/g,'g').replace(/[şŞ]/g,'s').replace(/[çÇ]/g,'c')
+  .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
 function mapRow(row){
   const nk={}; Object.keys(row).forEach(k=> nk[normKey(k)] = k);
-  const pick = (arr)=>{ for(const key of arr){ const hit = Object.keys(nk).find(n=> n===key || n.includes(key)); if(hit) return row[nk[hit]]; } return undefined; };
-  const barcode = pick(['barkod','ean','ean13','barcode','barkodno','barkodu']);
-  const name    = pick(['stokadi','urunadi','urun','adi','ad','stok','aciklama','açiklama','aciklama']);
-  const price   = pick(['magazasatis','satisfiyati','satisfiyati1','fiyat','perakendesatis','perakende','magazafiyati','satisfiyat1']);
-  const date    = pick(['fiyatdegisim','fiyatdegisiklik','fdeg','fd','tarih','fiyattarihi']);
-  return { barcode:parseBarcode(barcode), name:String(name||'').trim(), price:parsePrice(price), priceDate:parseExcelDate(date) };
+  const pick = (cands)=>{ for(const c of cands){ const hit = Object.keys(nk).find(n=> n===c || n.includes(c)); if(hit) return row[nk[hit]]; } return undefined; };
+  const barcode = pick(['barkod','barcode','ean','ean13','urunbarkod','stokbarkod','barkodno','barkodu']);
+  const name    = pick(['stokadi','urunadi','urunad','urun','adi','ad','aciklama','aciklamasi']);
+  const price   = pick(['magazasatis','magazasatisfiyati','satisfiyati','satisfiyati1','satisfiyat1','fiyat','perakendesatis','perakende','magazafiyati','sf1']);
+  const fd      = pick(['fiyatdegisim','fiyatdegisiklik','fdeg','fdtarihi','fd','fiyattarihi','degisimtarihi','gunceltarih','tarih']);
+  return {
+    barcode: String(barcode||'').toString().replace(/\D/g,''),
+    name: String(name||'').toString().trim(),
+    price: parsePrice(price),
+    priceDate: parseFD(fd)
+  };
 }
 
-/*** ====== SHEETS LOAD (FIXED) ====== ***/
+/* ===== GLOBAL STATE ===== */
+let PRODUCTS=[]; let CART=JSON.parse(localStorage.getItem('etiket_cart')||'[]'); let LAST_RESULTS=[];
+function setCart(n){ CART=n; localStorage.setItem('etiket_cart',JSON.stringify(CART)); $('cartCount').textContent=CART.reduce((a,x)=>a+x.qty,0); }
+setCart(CART);
+
+/* ===== SHEETS LOAD ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
-  // Bu URL'yi gerekirse değiştir
   const url='https://docs.google.com/spreadsheets/d/1mOXWfC616TIIzodvzziuvVDEeHylfbPearAPeoTxLbc/gviz/tq?tqx=out:csv';
   fetch(url).then(r=>r.text()).then(csv=>{
-    // CSV'yi sheet'e çevirip json yapacağız
-    const wb = XLSX.read(csv, { type: 'string' });
-    const sh = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sh, { defval:'', raw:true, cellDates:true });
+    const wb=XLSX.read(csv,{type:'string'});
+    const sh=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true,cellDates:true});
     const arr = rows.map(mapRow).filter(x=>x.barcode && x.name);
     PRODUCTS = arr;
-    badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0 ? PRODUCTS.length+' ürün yüklendi (Sheets)' : 'Hiç ürün okunamadı'}`;
-    if(PRODUCTS.length) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
-  }).catch(err=> alert('Google Sheets’den veri alınamadı: '+ err));
+    $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Sheets)`;
+    toast('Sheets verisi yüklendi');
+  }).catch(err=> alert('Sheets alınamadı: '+err));
 });
 
-/*** ====== MANUAL EXCEL/CSV UPLOAD (FIXED) ====== ***/
+/* ===== MANUAL EXCEL/CSV ===== */
 $('fileExcel').addEventListener('change', (ev)=>{
-  const f = ev.target.files && ev.target.files[0]; if(!f) return;
-  const ext = (f.name.split('.').pop()||'').toLowerCase();
+  const f=ev.target.files?.[0]; if(!f) return;
+  const ext=(f.name.split('.').pop()||'').toLowerCase();
 
-  const handleWorkbook = (wb)=>{
+  const handleWB=(wb)=>{
     try{
-      const sh = wb.Sheets[wb.SheetNames[0]];
-      let rows = XLSX.utils.sheet_to_json(sh, { defval:'', raw:true, cellDates:true });
-      // Eğer otomatik başlık tanıyamazsa basit başlık çıkar
+      const sh=wb.Sheets[wb.SheetNames[0]];
+      let rows=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true,cellDates:true});
       if(rows.length===0){
-        const A = XLSX.utils.sheet_to_json(sh, { header:1, defval:'' });
-        const head = A[0]||[];
-        rows = (A.slice(1)).map(r=>{
-          const o={}; head.forEach((h,i)=> o[h||('Col'+(i+1))] = r[i]); return o;
-        });
+        const A=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
+        const head=A[0]||[];
+        rows = (A.slice(1)).map(r=>{ const o={}; head.forEach((h,i)=> o[h||('Col'+(i+1))]=r[i]); return o; });
       }
       const arr = rows.map(mapRow).filter(x=>x.barcode && x.name);
       PRODUCTS = arr;
-      badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0 ? PRODUCTS.length+' ürün yüklendi (Excel)' : 'Hiç ürün okunamadı'}`;
-      if(PRODUCTS.length) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
+      $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Excel)`;
+      toast('Excel/CSV yüklendi');
     }catch(e){ alert('Excel/CSV okunamadı: '+e); }
   };
 
   if(ext==='csv'){
-    const r = new FileReader();
-    r.onload = e => {
-      const wb = XLSX.read(e.target.result, { type:'string' });
-      handleWorkbook(wb);
-    };
-    r.readAsText(f);
+    const r=new FileReader(); r.onload=e=>handleWB(XLSX.read(e.target.result,{type:'string'})); r.readAsText(f);
   }else{
-    const r = new FileReader();
-    r.onload = e => {
-      const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
-      handleWorkbook(wb);
-    };
-    r.readAsArrayBuffer(f);
+    const r=new FileReader(); r.onload=e=>handleWB(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true})); r.readAsArrayBuffer(f);
   }
 });
 
-/*** ====== CART & SEARCH ====== ***/
-function setCart(n){ CART=n; localStorage.setItem('etiket_cart',JSON.stringify(CART)); cartCount.textContent=CART.reduce((a,x)=>a+x.qty,0); }
-setCart(CART);
-
+/* ===== SEARCH ===== */
 function isOld(p){ return p.priceDate ? monthsDiff(new Date(p.priceDate))>=12 : false; }
-
 function showResults(title,arr){
-  LAST_RESULTS=arr; $('mFilter').textContent=title; $('mCount').textContent=arr.length; const L=$('mList'); L.innerHTML='';
+  LAST_RESULTS=arr; const L=$('mList'); $('mFilter').textContent=title; L.innerHTML='';
   arr.slice(0,200).forEach(p=>{
     const li=document.createElement('div'); li.className='item';
-    li.innerHTML=`<div><div class="nm">${p.name}</div><div class="bc">${p.barcode}</div></div><div>${isOld(p)?'<span class="tag-old">Eski fiyat</span>':''} <span style="font-weight:900;margin-left:8px">${fmtTRY.format(p.price)}</span></div>`;
+    li.innerHTML=`<div><div class="nm">${p.name}</div><div class="bc">${p.barcode}</div></div>
+      <div>${isOld(p)?'<span class="tag-old">Eski fiyat</span>':''} <span style="font-weight:900;margin-left:8px">${fmtTRY.format(p.price)}</span></div>`;
     li.onclick=()=>{ $('mdlSearch').classList.remove('shown'); openProduct(p); };
     L.appendChild(li);
   });
+  $('mCount').textContent=arr.length;
   $('mdlSearch').classList.add('shown');
 }
-function filterByName(q){ const s=q.trim().toLowerCase(); if(s.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.name.toLowerCase().includes(s)); if(res.length) showResults(`Ad: "${q}"`,res); else $('mdlSearch').classList.remove('shown'); }
-function filterByLast6(v){ const t=v.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown'); }
-inpName.addEventListener('input', ()=>{ filterByName(inpName.value); });
-inpBarcode.addEventListener('input', ()=>{ filterByLast6(inpBarcode.value); });
-['inpName','inpBarcode'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter'&&LAST_RESULTS.length){ openProduct(LAST_RESULTS[0]); $('mdlSearch').classList.remove('shown'); }}));
+$('inpName').addEventListener('input', e=>{
+  const s=e.target.value.trim().toLowerCase(); if(s.length<2){ $('mdlSearch').classList.remove('shown'); return;}
+  const res=PRODUCTS.filter(p=>p.name.toLowerCase().includes(s)); if(res.length) showResults(`Ad: "${s}"`,res); else $('mdlSearch').classList.remove('shown');
+});
+$('inpBarcode').addEventListener('input', e=>{
+  const t=e.target.value.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; }
+  const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown');
+});
 $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remove('shown'));
 
-/*** ====== LABEL TEMPLATE & PDF ====== ***/
-const labelCSS = `#etiketler{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.etiket{background:#fff;width:260px;height:100px;border-radius:14px;box-shadow:0 1px 6px #d7d7db33;display:flex;flex-direction:row;align-items:flex-start;padding:12px 12px 8px 6px;box-sizing:border-box;position:relative}.etiket-logo{width:60px;height:78px;margin-right:5px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:flex-start}.etiket-logo img{width:100%;height:100%;object-fit:contain}.etiket-icerik{display:flex;flex-direction:column;gap:6px;min-width:0}.etiket-stokadi{font:700 12px/1.25 Arial,system-ui,sans-serif;color:#0f172a;letter-spacing:.1px;max-height:32px;overflow:hidden}.etiket-row{display:grid;grid-template-columns:1fr 1fr;gap:2px;align-items:end}.etiket-fiyat{font:900 22px/1 Arial,system-ui;color:#0f172a}.tlsimge{font:700 12px Arial;margin-left:1px}.etiket-barkod img{height:44px;width:auto;display:block}`;
-function buildLabelNode(it) {
-  const canvas = document.createElement('canvas');
-  const fmt = /^[0-9]{13}$/.test(it.barcode) ? 'EAN13' : /^[0-9]{12}$/.test(it.barcode) ? 'UPC' : 'EAN13';
-  JsBarcode(canvas, it.barcode, { format: fmt, height: 42, width: 1.6, displayValue: true, font: 'Arial', fontSize: 12, textMargin: 2, margin: 0, lineColor: '#000' });
-  const barPng = canvas.toDataURL('image/jpeg', 0.82);
-  const priceStr = fmtTRY.format(it.price).replace('₺','');
-  const wrap = document.createElement('div'); 
-  wrap.className='etiket';
-  wrap.innerHTML = `<div class="etiket-logo"><img src="logo.png" alt="Logo" crossorigin="anonymous"></div>
-  <div class="etiket-icerik">
-    <div class="etiket-stokadi">${it.name}</div>
-    <div class="etiket-row"><div class="etiket-fiyat">${priceStr} <span class="tlsimge">₺</span></div>
-    <div class="etiket-barkod"><img src="${barPng}" alt="Barkod"></div></div></div>`;
-  return wrap;
-}
-
-async function makeLabelsDoc(){
-  const { jsPDF }=window.jspdf; const A4W=210,A4H=297,cols=4,rows=10,margin=5;
-  const work=$('work'); work.innerHTML='';
-  const style=document.createElement('style'); style.textContent=labelCSS; work.appendChild(style);
-  const labels=[]; CART.forEach(it=>{ for(let i=0;i<it.qty;i++) labels.push(it); });
-  const per=cols*rows; const pages=Math.max(1,Math.ceil(labels.length/per)); let li=0; const doc=new jsPDF({unit:'mm',format:'a4'});
-
-  for(let pg=0;pg<pages;pg++){
-    const page=document.createElement('div');
-    page.style.cssText='width:794px;height:1123px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px;background:#fff';
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        const holder=document.createElement('div');
-        holder.style.cssText='display:flex;align-items:center;justify-content:center;border:1px dashed #e5e7eb;border-radius:8px';
-        const it=labels[li++];
-        if(it){ holder.appendChild(buildLabelNode(it)); page.appendChild(holder); }
-      }
-    }
-    work.appendChild(page);
-    const canvas=await html2canvas(page,{scale:2.2,useCORS:true,allowTaint:true,background:'#fff'}); 
-    const img=canvas.toDataURL('image/jpeg', 0.75);
-    if(pg>0) doc.addPage(); doc.addImage(img,'JPEG',margin,margin,A4W-margin*2,A4H-margin*2);
-  }
-
-  let since = localStorage.getItem('etiket_counter_since'); if(!since){ since = new Date().toISOString(); }
-  let total = parseInt(localStorage.getItem('etiket_counter_total')||'0',10);
-  const thisPrint = CART.reduce((a,x)=>a+x.qty,0);
-  const newTotal = total + thisPrint;
-  const sinceStr = (function(){ try{ const d=new Date(since); const dd=('0'+d.getDate()).slice(-2), mm=('0'+(d.getMonth()+1)).slice(-2), yy=d.getFullYear(); const hh=('0'+d.getHours()).slice(-2), mi=('0'+d.getMinutes()).slice(-2); return `${dd}.${mm}.${yy} ${hh}:${mi}`; }catch(_){ return '—'; }})();
-
-  doc.setFontSize(15); 
-  doc.text(`Toplam: ${thisPrint} etiket  •  Eski fiyatlı: ${CART.filter(x=>x.isOld).reduce((a,x)=>a+x.qty,0)}`, A4W/2, A4H-10, {align:'center'});
-  doc.setFontSize(11);
-  doc.text(`${sinceStr}’den beri ${newTotal} etiket basıldı.`, A4W/2, A4H-5, {align:'center'});
-  return doc;
-}
-
-async function makeOldListBlob(){
-  const old=CART.filter(x=>x.isOld);
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
-
-  const wrap=document.createElement('div'); wrap.style.cssText='width:794px;min-height:1123px;background:#fff;padding:18px';
-  const h=document.createElement('div'); h.textContent='Eski Fiyatlı Ürünler'; h.style.cssText='font-weight:900;font-size:22px;margin-bottom:8px'; wrap.appendChild(h);
-  const sub=document.createElement('div'); sub.textContent=`Tarih: ${new Date().toLocaleDateString('tr-TR')}  •  Toplam: ${old.reduce((a,x)=>a+x.qty,0)} etiket`; sub.style.cssText='color:#475569;margin-bottom:12px'; wrap.appendChild(sub);
-
-  const list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:8px';
-  if(old.length===0){
-    const no=document.createElement('div'); no.textContent='Eski fiyatlı ürün bulunmadı.'; list.appendChild(no);
-  }
-  old.forEach(it=>{
-    const cvs=document.createElement('canvas');
-    const fmt=/^[0-9]{13}$/.test(it.barcode)?'EAN13':'UPC';
-    JsBarcode(cvs,it.barcode,{format:fmt,height:34,displayValue:false,margin:0,lineColor:'#000',width:1.6});
-    const png=cvs.toDataURL('image/png');
-
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff';
-    const left=document.createElement('div');
-    left.innerHTML=`<div style="font-weight:800">${it.name}</div>
-                    <div style="color:#475569;font-family:Arial">Barkod: ${it.barcode}</div>
-                    <div style="color:#111">Fiyat: ${fmtTRY.format(it.price)} • FD Tarihi: ${(function(){return it.priceDate?fmtDMY(new Date(it.priceDate)):'—'})()}</div>`;
-    const right=document.createElement('div');
-    right.innerHTML=`<img src="${png}" alt="barkod" style="height:34px">`;
-
-    row.appendChild(left); row.appendChild(right); list.appendChild(row);
-  });
-  wrap.appendChild(list);
-
-  $('work').innerHTML=''; $('work').appendChild(wrap);
-  const canvas=await html2canvas(wrap,{scale:2.2,useCORS:true,allowTaint:true,background:'#fff'}); 
-  const img=canvas.toDataURL('image/jpeg', 0.8);
-  doc.addImage(img,'JPEG',5,5,200,287);
-  const blob = doc.output('blob');
-  const name = `eski_fiyatli_${new Date().toISOString().slice(0,10)}.pdf`;
-  return { blob, name };
-}
-
-/*** ====== POPUP (old style) ====== ***/
+/* ===== POPUP (old style) ===== */
 const mdl=$('mdlProduct');
 function openProduct(p){
   $('mName').textContent=p.name; $('mPrice').textContent=fmtTRY.format(p.price); $('mBarcode').textContent=p.barcode;
-  const d=p.priceDate? new Date(p.priceDate):null;
-  $('mDate').textContent = d ? fmtDMY(d) : '—';
-  $('mDateRow').style.display=d?'block':'none';
-  const old=isOld(p); $('mOld').style.display=old?'block':'none';
+  $('mDate').textContent = p.priceDate ? fmtDMY(p.priceDate) : '—';
+  $('mDateRow').style.display = p.priceDate ? 'block':'none';
+  $('mOld').style.display = isOld(p) ? 'block':'none';
 
   mdl.classList.add('shown');
-  mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
-  $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,old); };
-  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
+  mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),isOld(p)));
+  $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,isOld(p)); };
+  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); };
 }
-function addToCart(p,qty,isOld){
-  if(qty>=10){
-    const ok = confirm('⚠️ Bu üründen 10 adet ve üzeri seçtiniz, emin misiniz?');
-    if(!ok) return;
-  }
-  const idx = CART.findIndex(x => x.barcode === p.barcode);
-  if (idx > -1) CART[idx].qty += qty;
-  else CART.push({ barcode:p.barcode, name:p.name, price:p.price, isOld:!!isOld, qty });
+function addToCart(p,qty,isOldFlag){
+  if(qty>=10){ if(!confirm('⚠️ Bu üründen 10+ adet. Emin misiniz?')) return; }
+  const idx = CART.findIndex(x=>x.barcode===p.barcode);
+  if(idx>-1) CART[idx].qty+=qty; else CART.push({...p, isOld:!!isOldFlag, qty});
   setCart(CART);
   mdl.classList.remove('shown');
-  beep(true);
-  refocusAfterAction(true);
 }
 
-/*** ====== CART ====== ***/
-function renderCart(){
-  const L=$('cartList'); L.innerHTML='';
-  const oldOnly = $('chkOldOnly').checked;
-  (oldOnly ? CART.filter(x=>x.isOld) : CART).forEach((it,idx)=>{
-    const row=document.createElement('div');
-    row.className='cartRow';
-    row.innerHTML=`<div><div class="cartName">${it.name}</div><div class="mini">${it.barcode} • ${fmtTRY.format(it.price)} ${it.isOld?'<span class="tag-old" style="margin-left:6px">Eski</span>':''}</div></div><div class="qtyCtrl" data-idx="${idx}"><button class="dec">−</button><span>${it.qty}</span><button class="inc">+</button><button class="del" title="Sil"><i class="fa-solid fa-trash"></i></button></div>`;
-    L.appendChild(row);
+/* ===== DIAGNOSTICS (first 5 rows) ===== */
+$('btnDiag').addEventListener('click', ()=>{
+  const W=$('diagWrap'); W.innerHTML='';
+  PRODUCTS.slice(0,5).forEach((p,i)=>{
+    const d=document.createElement('div'); d.className='diagRow';
+    d.innerHTML = `<div class="diagHead">#${i+1} — ${p.name||'(isim yok)'}</div>
+      <div class="kv"><b>Barkod</b><div>${p.barcode}</div></div>
+      <div class="kv"><b>Fiyat</b><div>${fmtTRY.format(p.price)} <span style="color:#64748b;margin-left:6px">(raw OK)</span></div></div>
+      <div class="kv"><b>FD Tarihi</b><div>${p.priceDate?fmtDMY(p.priceDate):'—'}</div></div>`;
+    W.appendChild(d);
   });
-  $('cartTotalLbl').textContent=CART.reduce((a,x)=>a+x.qty,0);
-}
-$('btnCart').addEventListener('click', ()=>{ renderCart(); $('mdlCart').classList.add('shown'); });
-$('btnCartClose').addEventListener('click', ()=> $('mdlCart').classList.remove('shown'));
-$('btnCartClear').addEventListener('click', ()=>{ if(confirm('Sepeti tamamen temizle?')){ setCart([]); renderCart(); } });
-$('btnCartPrint').addEventListener('click', ()=>{ $('mdlCart').classList.remove('shown'); $('btnPrint').click(); });
-$('chkOldOnly').addEventListener('change', renderCart);
-$('cartList').addEventListener('click', (e)=>{
-  const ctr=e.target.closest('.qtyCtrl'); if(!ctr)return; const idx=+ctr.dataset.idx;
-  if(e.target.classList.contains('inc')){
-    const will = CART[idx].qty + 1;
-    if(CART[idx].qty<10 && will>=10){
-      const ok=confirm('⚠️ Bu üründen 10 adet ve üzeri seçmek üzeresiniz, emin misiniz?');
-      if(!ok) return;
-    }
-    CART[idx].qty=will;
-  } else if(e.target.classList.contains('dec')){
-    CART[idx].qty=Math.max(1,CART[idx].qty-1);
-  } else if(e.target.classList.contains('del')){
-    CART.splice(idx,1);
-  }
-  setCart(CART); renderCart();
+  $('mdlDiag').classList.add('shown');
 });
+$('btnDiagClose').addEventListener('click', ()=> $('mdlDiag').classList.remove('shown'));
 
-/*** ====== FX ====== ***/
-$('toggleFx').checked=!!FX; $('toggleFx').addEventListener('change', ()=>{ FX=$('toggleFx').checked; localStorage.setItem('etiket_fx',JSON.stringify(FX)); });
-
-/*** ====== SAVE CART / QR ====== ***/
-function saveCartJSON(filename='sepet.json'){
-  const blob=new Blob([JSON.stringify(CART,{ensure_ascii:false})],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=filename; a.click();
-}
-function tryShareBlob(blob, fileName, title){
-  if(navigator.canShare && navigator.canShare({ files:[new File([blob], fileName, {type:blob.type})] })){
-    const file = new File([blob], fileName, {type: blob.type});
-    return navigator.share({ files:[file], title: title||fileName, text: title||fileName });
-  }
-  return Promise.reject('share_unsupported');
-}
-$('btnSaveCart').addEventListener('click', ()=>{
-  const ask = confirm('QR kod oluşturup paylaşmak ister misiniz?\n\nEvet → QR oluştur + Paylaş\nHayır → JSON indir');
-  if(!ask){ saveCartJSON(); return; }
-  const data = JSON.stringify({ when: new Date().toISOString(), items: CART });
-  const area = $('qrArea'); area.innerHTML='';
-  new QRCode(area, { text: data, width: 256, height: 256 });
-  $('mdlQR').classList.add('shown');
-
-  $('btnQRShare').onclick = ()=>{
-    const blob = new Blob([data],{type:'application/json'});
-    tryShareBlob(blob,'sepet.json','Sepet Paylaşımı').catch(()=> saveCartJSON('sepet.json'));
-  };
-  $('btnQRClose').onclick = ()=> $('mdlQR').classList.remove('shown');
-});
-window.addEventListener('pagehide', ()=>{ try{ if(CART && CART.length){ saveCartJSON('data.json'); } }catch(_){} });
-
-/*** ====== PRINT FLOW ====== ***/
-$('btnPrint').addEventListener('click', async ()=>{
-  if(CART.length===0){ alert('Sepet boş.'); return; }
-  const hasOld=CART.some(x=>x.isOld);
-  if(hasOld){
-    $('mdlOldWarn').classList.add('shown');
-    $('btnOldCancel').onclick=()=> $('mdlOldWarn').classList.remove('shown');
-    $('btnOldOk').onclick=async ()=>{ $('mdlOldWarn').classList.remove('shown'); await prepareMainAndPreview(); };
-  }else{ await prepareMainAndPreview(); }
-});
-async function prepareMainAndPreview(){
-  const doc = await makeLabelsDoc();
-  __docLabels = doc;
-  const blob = __docLabels.output('blob');
-  if (__urlLabels) URL.revokeObjectURL(__urlLabels);
-  __urlLabels = URL.createObjectURL(blob);
-  $('pdfFrame').src = __urlLabels;
-  $('mdlPdf').classList.add('shown');
-  const oldBlob = await makeOldListBlob();
-  __oldBlob = oldBlob.blob;
-  __oldFileName = oldBlob.name;
-}
-$('btnPdfCancel').addEventListener('click', ()=> $('mdlPdf').classList.remove('shown'));
-$('btnPdfSave').addEventListener('click', async ()=>{
-  const fname = `etiketler_${new Date().toISOString().slice(0,10)}.pdf`;
-  __docLabels.save(fname);
-  $('mdlPdf').classList.remove('shown');
-  try{
-    const sinceKey='etiket_counter_since', totalKey='etiket_counter_total';
-    let since = localStorage.getItem(sinceKey);
-    if(!since){ since = new Date().toISOString(); localStorage.setItem(sinceKey, since); }
-    let total = parseInt(localStorage.getItem(totalKey)||'0',10);
-    total += CART.reduce((a,x)=>a+x.qty,0);
-    localStorage.setItem(totalKey, String(total));
-  }catch(_){}
-  const hasOld=CART.some(x=>x.isOld);
-  if(hasOld && __oldBlob){
-    try{
-      await tryShareBlob(__oldBlob, __oldFileName, 'Eski Fiyatlı Ürünler');
-      const log = JSON.parse(localStorage.getItem('etiket_log')||'[]');
-      log.push({ when: new Date().toISOString(), what:'old_pdf_shared', count: CART.filter(x=>x.isOld).reduce((a,x)=>a+x.qty,0) });
-      localStorage.setItem('etiket_log', JSON.stringify(log));
-    }catch(_){
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(__oldBlob);
-      a.download=__oldFileName; a.click();
-      setTimeout(()=> alert('Eski fiyatlı ürünler PDF’i oluşturuldu. LÜTFEN GRUBA GÖNDERİN.'), 200);
-    }
-  }
-});
-
-/*** ====== LAST 10 DAYS ====== ***/
-$('btnChanged10').addEventListener('click', ()=>{
-  const now = new Date();
-  const changed = PRODUCTS.filter(p=> p.priceDate && ((now - new Date(p.priceDate)) <= 10*24*60*60*1000));
-  const map = new Map();
-  changed.forEach(p=>{
-    const key = (p.name||'') + '|' + (p.price||0);
-    if(!map.has(key)) map.set(key, []);
-    map.get(key).push(p);
-  });
-
-  const wrap = $('changedWrap'); wrap.innerHTML='';
-  if(map.size===0){
-    const no = document.createElement('div'); no.className='item'; no.innerHTML='<div>Son 10 günde fiyatı değişen ürün bulunamadı.</div>'; wrap.appendChild(no);
-  }else{
-    map.forEach((arr, key)=>{
-      const [nm, pr] = key.split('|');
-      const card = document.createElement('div'); card.className='item';
-      const title = `${nm} (ve renkleri)`;
-      card.innerHTML = `<div><div class="nm">${title}</div><div class="bc">${fmtTRY.format(+pr)} • ${arr.length} varyant</div></div><div><i class="fa-solid fa-chevron-right"></i></div>`;
-      card.onclick = ()=>{
-        const modal = document.createElement('div'); modal.className='modal shown';
-        const box = document.createElement('div'); box.className='box'; box.style.width='min(92vw,620px)'; box.innerHTML = `<h3>${title}</h3>`;
-        const l = document.createElement('div'); l.className='list';
-        arr.forEach(p=>{
-          const row = document.createElement('div'); row.className='item';
-          row.innerHTML = `<div><div class="nm">${p.name}</div><div class="bc">${p.barcode}</div></div><div>${fmtTRY.format(p.price)}</div>`;
-          row.onclick = ()=>{ document.body.removeChild(modal); openProduct(p); };
-          l.appendChild(row);
-        });
-        const actions = document.createElement('div'); actions.className='actions';
-        const closeBtn=document.createElement('button'); closeBtn.className='btn'; closeBtn.textContent='Kapat';
-        closeBtn.onclick=()=> document.body.removeChild(modal);
-        actions.style.justifyContent='flex-end'; actions.appendChild(closeBtn);
-        box.appendChild(l); box.appendChild(actions);
-        modal.appendChild(box); document.body.appendChild(modal);
-      };
-      wrap.appendChild(card);
-    });
-  }
-
-  $('mdlChanged').classList.add('shown');
-});
-$('btnChangedClose').addEventListener('click', ()=> $('mdlChanged').classList.remove('shown'));
+/* ===== Minimal other modals for search ===== */
+const searchModal = document.createElement('div');
+searchModal.id='mdlSearch'; searchModal.className='modal';
+searchModal.innerHTML = `<div class="box"><h3>Filtrelenen Ürünler</h3><div class="mini">Filtre: <span id="mFilter"></span> — <span id="mCount">0</span> sonuç</div><div id="mList" class="list"></div><div class="actions" style="justify-content:flex-end"><button id="btnSearchClose" class="btn">Kapat</button></div></div>`;
+document.body.appendChild(searchModal);
 
 </script>
 </body>
