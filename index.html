@@ -215,52 +215,6 @@ function fmtDMY(d){
 }
 
 /* normalizasyon yardımcıları */
-/* === Sheets & CSV yardımcıları (UI'ya dokunmadan) === */
-function __parseSheetsInput(inputRaw){
-  const input = String(inputRaw||'').trim();
-  if(!input) return null;
-  const isApps = /script\.google\.com\/.*\/exec/i.test(input);
-  if(isApps) return { mode:'apps', url: input };
-  // Try to extract ID from URL, else assume it's an ID
-  const m = input.match(/spreadsheets\/d\/([a-zA-Z0-9\-_]+)/);
-  const id = m ? m[1] : input;
-  // Sheet name prompt (only first time)
-  let sheetName = (JSON.parse(localStorage.getItem('gsheets_cfg')||'null')||{}).sheetName || '';
-  if(!sheetName){
-    sheetName = prompt('Sayfa adı (Sheet1 / Sayfa1)', 'Sheet1') || 'Sheet1';
-  }
-  return { mode:'csv', id, sheetName };
-}
-function __getSheetsCfgInteractive(){
-  let cfg = null;
-  try{ cfg = JSON.parse(localStorage.getItem('gsheets_cfg')||'null'); }catch(_){ cfg=null; }
-  if(!cfg || (!cfg.url && !cfg.id)){
-    const last = localStorage.getItem('gsheets_last') || '';
-    const raw = prompt('Google Sheets URL/ID veya Apps Script JSON URL girin:', last);
-    if(!raw) return null;
-    localStorage.setItem('gsheets_last', raw);
-    cfg = __parseSheetsInput(raw);
-    if(!cfg) return null;
-    localStorage.setItem('gsheets_cfg', JSON.stringify(cfg));
-  }
-  return cfg;
-}
-async function __readCSVWithAutoFS(text){
-  // Try default (comma), fallback to semicolon if needed
-  let wb = XLSX.read(text, { type:'string' });
-  try{
-    const sh = wb.Sheets[wb.SheetNames[0]];
-    let rows = XLSX.utils.sheet_to_json(sh, { defval:'', raw:true, cellDates:true });
-    if(rows && rows.length >= 1) return wb;
-  }catch(_){}
-  // Heuristic: more semicolons than commas -> use FS:';'
-  const semi = (text.match(/;/g)||[]).length, comma = (text.match(/,/g)||[]).length;
-  if(semi > comma){
-    try{ wb = XLSX.read(text, { type:'string', FS:';' }); }catch(_){}
-  }
-  return wb;
-}
-
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
 function parsePrice(v){
@@ -288,56 +242,13 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normKey(s){return String(s||'').toLowerCase().replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u').replace(/[ğĞ]/g,'g').replace(/[şŞ]/g,'s').replace(/[çÇ]/g,'c').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
-/* Google Sheets’ten otomatik veri çekme (interaktif, CORS ve CSV sağlamlaştırılmış) */
-document.getElementById('btnFetchSheets').addEventListener('click', async ()=>{
-  try{
-    const cfg = __getSheetsCfgInteractive();
-    if(!cfg){
-      // Kullanıcı URL/ID girmedi; eski sabit örnekle devam (geri uyum)
-      const fallback = 'https://docs.google.com/spreadsheets/d/1mOXWfC616TIIzodvzziuvVDEeHylfbPearAPeoTxLbc/gviz/tq?tqx=out:csv';
-      const r = await fetch(fallback);
-      const csv = await r.text();
-      const wb = await __readCSVWithAutoFS(csv);
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      let rowsObj = XLSX.utils.sheet_to_json(sheet, { defval:'', raw:true, cellDates:true });
-      let arr = rowsObj.map(normalizeRow).filter(x=>x.barcode && x.name);
-      PRODUCTS = arr;
-      badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length > 0 ? PRODUCTS.length + ' ürün yüklendi (Sheets)' : 'Hiç ürün okunamadı'}`;
-      if (PRODUCTS.length > 0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
-      return;
-    }
-    if(cfg.mode === 'apps'){
-      // Apps Script JSON
-      const r = await fetch(cfg.url, { method:'GET' });
-      if(!r.ok) throw new Error('Apps Script erişilemedi (HTTP '+r.status+')');
-      const data = await r.json();
-      const rows = Array.isArray(data) ? data : (Array.isArray(data.rows) ? data.rows : null);
-      if(!rows) throw new Error('Beklenen JSON dizisi bulunamadı');
-      const arr = rows.map(normalizeRow).filter(x=>x.barcode && x.name);
-      PRODUCTS = arr;
-      badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Apps Script)`;
-      if (PRODUCTS.length > 0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
-      return;
-    }else{
-      // CSV export (gviz) ↔ CORS olabilir; HTTP üzerinden çalıştırman önerilir
-      const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(cfg.sheetName||'Sheet1')}`;
-      const r = await fetch(url);
-      if(!r.ok) throw new Error('CSV export erişilemedi (HTTP '+r.status+')');
-      const csv = await r.text();
-      const wb = await __readCSVWithAutoFS(csv);
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      let rowsObj = XLSX.utils.sheet_to_json(sheet, { defval:'', raw:true, cellDates:true });
-      let arr = rowsObj.map(normalizeRow).filter(x=>x.barcode && x.name);
-      PRODUCTS = arr;
-      badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Sheets)`;
-      if (PRODUCTS.length > 0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
-      return;
-    }
-  }catch(err){
-    console.error(err);
-    alert('Google Sheets verisi alınamadı: ' + (err.message||err) + '\nİpucu: Sayfayı dosyayı çift tıklayarak değil, bir HTTP sunucudan açarsanız (ör. python -m http.server) CORS hataları çözülür.');
-  }
-});
+/* Google Sheets’ten otomatik veri çekme */
+document.getElementById('btnFetchSheets').addEventListener('click', ()=>{
+    const url = 'https://docs.google.com/spreadsheets/d/1mOXWfC616TIIzodvzziuvVDEeHylfbPearAPeoTxLbc/gviz/tq?tqx=out:csv';
+    fetch(url)
+    .then(r=>r.text())
+    .then(csv=>{
+        const wb = XLSX.read(csv, { type: 'string' });
         try {
             const sheet = wb.Sheets[wb.SheetNames[0]];
             let rowsObj = XLSX.utils.sheet_to_json(sheet, { defval:'', raw:true, cellDates:true });
