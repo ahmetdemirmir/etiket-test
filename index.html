@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fiyat Gör Etiket Bas — Fix2 (Fiyat & FD Tarihi Doğrulama)</title>
+<title>Etiket Sistemi — Stabil (Arama & Yazdır Fix)</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -15,24 +15,20 @@
 <style>
 :root{
   --bg:#f6f7fb; --card:#ffffff; --line:#e5e7eb; --ink:#0f172a; --muted:#475569;
-  --brand:#2563eb; --brand2:#38bdf8; --ok:#059669; --warn:#f59e0b; --danger:#ef4444;
+  --brand:#2563eb; --ok:#059669; --danger:#ef4444;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
-a{color:var(--brand);text-decoration:none}
-header{position:sticky;top:0;z-index:5;background:#ffffff;color:#0f172a;display:flex;align-items:center;gap:12px;justify-content:center;padding:12px;border-bottom:1px solid var(--line)}
-header h1{margin:0;font-size:1.05rem;font-weight:900;letter-spacing:.4px}
-.wrap{max-width:1100px;margin:auto;padding:18px}
-
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);padding:16px}
-.control{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.input{flex:1;min-width:220px;background:#fff;border:1px solid var(--line);color:var(--ink);padding:12px;border-radius:12px;font-size:15px}
-.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
-.btn.primary{background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 14px}
+h1{margin:0;font-size:18px}
+.wrap{max-width:1100px;margin:auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(15,23,42,.06);padding:14px}
+.control{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.input{flex:1;min-width:220px;background:#fff;border:1px solid var(--line);color:#0f172a;padding:10px;border-radius:10px;font-size:14px}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:linear-gradient(90deg,var(--brand),#6aa7ff);color:#fff}
+.btn.success{background:linear-gradient(90deg,var(--ok),#34d399);color:#fff}
 .btn.neutral{background:#fff;border:1px solid var(--line);color:#0f172a}
-.btn.success{background:linear-gradient(90deg,#059669,#34d399);color:#fff}
-.badge{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--line);background:#fff;color:#0f172a;padding:7px 10px;border-radius:999px;font-size:12px}
-small.hint{display:block;color:var(--muted);margin-top:6px}
+.badge{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--line);background:#fff;color:#0f172a;padding:6px 10px;border-radius:999px;font-size:12px}
 
 .list{display:flex;flex-direction:column;gap:8px;max-height:62vh;overflow:auto;margin-top:8px}
 .item{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer}
@@ -51,15 +47,13 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .warn{background:#fee2e2;border:1px dashed #ef4444;color:#7f1d1d;padding:10px;border-radius:12px;font-weight:800;margin:10px 0}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 
-/* diagnostics */
-.kv{display:grid;grid-template-columns:160px 1fr;gap:6px}
-.kv b{color:#0f172a}
-.diagRow{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
-.diagHead{font-weight:900;margin-bottom:6px}
+/* pdf preview */
+.pdfBox{width:min(95vw,920px);height:90vh;display:flex;flex-direction:column}
+.pdfFrame{flex:1;border:1px solid var(--line);border-radius:8px}
 </style>
 </head>
 <body>
-<header><h1>Fiyat Gör Etiket Bas — Fix2</h1></header>
+<header><h1>Etiket Sistemi — Stabil</h1></header>
 
 <div class="wrap">
   <div class="card">
@@ -69,9 +63,8 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       </div>
       <div class="control">
         <button id="btnCart" class="btn neutral"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
-        <button id="btnSaveCart" class="btn neutral"><i class="fa-solid fa-download"></i> Sepeti Kaydet / Paylaş</button>
+        <button id="btnSaveCart" class="btn neutral"><i class="fa-solid fa-download"></i> Sepeti Kaydet</button>
         <button id="btnPrint" class="btn success"><i class="fa-solid fa-print"></i> Yazdır</button>
-        <button id="btnDiag" class="btn neutral"><i class="fa-solid fa-magnifying-glass-chart"></i> Veri Kontrol</button>
       </div>
     </div>
 
@@ -81,20 +74,21 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv">
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
     </div>
-    <small class="hint">Bu sürümde **fiyat** ve **FD tarihi** parse işlemi güçlendirildi (TR/EN biçimleri, nokta/virgül, Excel seri günleri, saat). Ayrıca ilk 5 satır için “Veri Kontrol” ekranı var.</small>
+    <small class="mini">Bu sürüm minimal ve **stabil**: Arama & Yazdır akışı sadeleştirildi.</small>
   </div>
 </div>
 
-<!-- diagnostics -->
-<div id="mdlDiag" class="modal">
+<!-- Search modal -->
+<div id="mdlSearch" class="modal">
   <div class="box">
-    <h3>Veri Kontrol (İlk 5 Satır)</h3>
-    <div id="diagWrap" class="list"></div>
-    <div class="actions" style="justify-content:flex-end"><button id="btnDiagClose" class="btn">Kapat</button></div>
+    <h3>Filtrelenen Ürünler</h3>
+    <div class="mini">Filtre: <span id="mFilter"></span> — <span id="mCount">0</span> sonuç</div>
+    <div id="mList" class="list"></div>
+    <div class="actions" style="justify-content:flex-end"><button id="btnSearchClose" class="btn">Kapat</button></div>
   </div>
 </div>
 
-<!-- product popup (old style) -->
+<!-- Product popup (old style) -->
 <div id="mdlProduct" class="modal">
   <div class="box">
     <h3 id="mName">Ürün Adı</h3>
@@ -114,104 +108,59 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
   </div>
 </div>
 
-<!-- simple toasts -->
-<div id="toast" style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:40">ok</div>
+<!-- PDF preview -->
+<div id="mdlPdf" class="modal">
+  <div class="box pdfBox">
+    <h3>Önizleme — Etiketler</h3>
+    <iframe id="pdfFrame" class="pdfFrame"></iframe>
+    <div class="actions" style="justify-content:flex-end">
+      <button id="btnPdfCancel" class="btn">İptal</button>
+      <button id="btnPdfSave" class="btn success">Kaydet</button>
+    </div>
+  </div>
+</div>
+
 <div id="work" style="position:fixed;left:-9999px;top:-9999px;opacity:0"></div>
+<div id="toast" style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:40">ok</div>
 
 <script>
-/* ========= UTIL ========= */
+/* ===== Utilities ===== */
 const $=id=>document.getElementById(id);
-const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:2});
 const toast=(t)=>{const el=$('toast');el.textContent=t;el.style.opacity=0.95;setTimeout(()=>el.style.opacity=0,1400);};
+const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:2});
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
-const fmtDMY=(d)=>{try{const dt=d instanceof Date?d:new Date(d); if(isNaN(dt))return'—'; return dt.toLocaleDateString('tr-TR')+(dt.getHours()?(' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')):'');}catch(_){return'—';}};
+const fmtDMY=(d)=>{try{const dt=d instanceof Date?d:new Date(d); if(isNaN(dt))return'—'; return dt.toLocaleDateString('tr-TR');}catch(_){return'—';}};
 
-/* ===== Robust Price Parser (TR/EN) =====
-  Kabul edilen örnekler:
-  1.234,50  |  1,234.50  |  1234,5  |  1 234,50  |  ₺1.234,50  |  1234.50  |  1.234
-*/
+/* ===== Robust parsers (price & FD) ===== */
 function parsePrice(v){
   if(v===undefined||v===null||v==='') return 0;
   if(typeof v==='number') return v;
-  let s = String(v).trim();
-  // currency symbols & spaces
-  s = s.replace(/[₺₤₫€$£\s\u00A0]/g,'');
-  // normalize thousands/decimal
-  // Case A: 1.234,56  (TR)
-  if(/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)){
-    s = s.replace(/\./g,'').replace(',', '.');
-    return parseFloat(s)||0;
+  let s=String(v).trim().replace(/[₺₤₫€$£\s\u00A0]/g,'');
+  if(/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)) s=s.replace(/\./g,'').replace(',', '.');
+  else if(/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(s)) s=s.replace(/,/g,'');
+  else if(/^\d+,\d{1,2}$/.test(s)) s=s.replace(',', '.');
+  else if(/^\d{1,3}(,\d{3})+$/.test(s)) s=s.replace(/,/g,'');
+  else {
+    const m=s.match(/(\d+[.,]?\d*)/); if(m){ return parsePrice(m[1]); }
   }
-  // Case B: 1,234.56 (EN)
-  if(/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(s)){
-    s = s.replace(/,/g,'');
-    return parseFloat(s)||0;
-  }
-  // Case C: 1234,5  -> 1234.5
-  if(/^\d+,\d{1,2}$/.test(s)){
-    s = s.replace(',', '.');
-    return parseFloat(s)||0;
-  }
-  // Case D: 1234.56  or integer with dots as thousands 1.234.567
-  if(/^\d+(\.\d+)?$/.test(s)){
-    const parts = s.split('.');
-    if(parts.length>2){ // thousands dots
-      s = parts.join('');
-      return parseFloat(s)||0;
-    }
-    return parseFloat(s)||0;
-  }
-  // Case E: 1,234  (comma as thousands)
-  if(/^\d{1,3}(,\d{3})+$/.test(s)){
-    s = s.replace(/,/g,'');
-    return parseFloat(s)||0;
-  }
-  // Fallback: remove non-digits except last [, .] as decimal
-  const m = s.match(/(\d+[.,]?\d*)/);
-  if(m){ return parsePrice(m[1]); }
-  return 0;
+  const n=parseFloat(s); return Number.isNaN(n)?0:n;
 }
-
-/* ===== Robust Date Parser (FD) =====
-  Desteklenen biçimler:
-  - Excel seri sayısı (num)
-  - 2025-08-18 veya 2025-08-18 14:42
-  - 18.08.2025, 18/08/2025, 18-08-2025 (+ opsiyonel saat)
-*/
-function excelSerialToDate(n){
-  const epoch = new Date(Date.UTC(1899,11,30)); // Excel base
-  const ms = Math.round(n*86400000);
-  return new Date(epoch.getTime()+ms);
-}
+function excelSerialToDate(n){ const epoch = new Date(Date.UTC(1899,11,30)); return new Date(epoch.getTime()+Math.round(n*86400000)); }
 function parseFD(v){
   if(v===undefined||v===null||v==='') return null;
   if(v instanceof Date && !isNaN(v)) return v;
-  if(typeof v==='number'){ return excelSerialToDate(v); }
-  let s = String(v).trim();
-  // strip extra quotes
-  s = s.replace(/^'+|'+$/g,'');
-  // ISO
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
-    const d=new Date(s.replace(' ', 'T'));
-    return isNaN(d)?null:d;
-  }
-  // TR: dd.mm.yyyy [hh:mm[:ss]]
-  let m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if(m){
-    const DD=+m[1], MM=+m[2]-1, YY=+m[3]<100?2000+(+m[3]):+m[3];
-    const hh=+(m[4]||0), mi=+(m[5]||0), ss=+(m[6]||0);
-    const d = new Date(YY,MM,DD,hh,mi,ss);
-    return isNaN(d)?null:d;
-  }
-  // Fallback: Date() try
-  const d2 = new Date(s);
-  return isNaN(d2)?null:d2;
+  if(typeof v==='number') return excelSerialToDate(v);
+  let s=String(v).trim().replace(/^'+|'+$/g,'');
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){ const d=new Date(s); return isNaN(d)?null:d; }
+  const m=s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/);
+  if(m){ const DD=+m[1],MM=+m[2]-1,YY=+m[3]<100?2000+(+m[3]):+m[3]; const d=new Date(YY,MM,DD); return isNaN(d)?null:d; }
+  const d2=new Date(s); return isNaN(d2)?null:d2;
 }
 
-/* ===== Column Mapping (genişletildi) ===== */
+/* ===== Column mapping ===== */
 function normKey(s){return String(s||'').toLowerCase()
-  .replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u').replace(/[ğĞ]/g,'g').replace(/[şŞ]/g,'s').replace(/[çÇ]/g,'c')
-  .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
+.replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u').replace(/[ğĞ]/g,'g').replace(/[şŞ]/g,'s').replace(/[çÇ]/g,'c')
+.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');}
 function mapRow(row){
   const nk={}; Object.keys(row).forEach(k=> nk[normKey(k)] = k);
   const pick = (cands)=>{ for(const c of cands){ const hit = Object.keys(nk).find(n=> n===c || n.includes(c)); if(hit) return row[nk[hit]]; } return undefined; };
@@ -227,119 +176,140 @@ function mapRow(row){
   };
 }
 
-/* ===== GLOBAL STATE ===== */
+/* ===== Global state ===== */
 let PRODUCTS=[]; let CART=JSON.parse(localStorage.getItem('etiket_cart')||'[]'); let LAST_RESULTS=[];
 function setCart(n){ CART=n; localStorage.setItem('etiket_cart',JSON.stringify(CART)); $('cartCount').textContent=CART.reduce((a,x)=>a+x.qty,0); }
 setCart(CART);
 
-/* ===== SHEETS LOAD ===== */
+/* ===== Loaders ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
   const url='https://docs.google.com/spreadsheets/d/1mOXWfC616TIIzodvzziuvVDEeHylfbPearAPeoTxLbc/gviz/tq?tqx=out:csv';
   fetch(url).then(r=>r.text()).then(csv=>{
-    const wb=XLSX.read(csv,{type:'string'});
-    const sh=wb.Sheets[wb.SheetNames[0]];
+    const wb=XLSX.read(csv,{type:'string'}); const sh=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true,cellDates:true});
-    const arr = rows.map(mapRow).filter(x=>x.barcode && x.name);
-    PRODUCTS = arr;
-    $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Sheets)`;
-    toast('Sheets verisi yüklendi');
+    PRODUCTS = rows.map(mapRow).filter(x=>x.barcode && x.name);
+    $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün (Sheets)`;
+    toast('Sheets yüklendi');
   }).catch(err=> alert('Sheets alınamadı: '+err));
 });
-
-/* ===== MANUAL EXCEL/CSV ===== */
 $('fileExcel').addEventListener('change', (ev)=>{
   const f=ev.target.files?.[0]; if(!f) return;
   const ext=(f.name.split('.').pop()||'').toLowerCase();
-
-  const handleWB=(wb)=>{
-    try{
-      const sh=wb.Sheets[wb.SheetNames[0]];
-      let rows=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true,cellDates:true});
-      if(rows.length===0){
-        const A=XLSX.utils.sheet_to_json(sh,{header:1,defval:''});
-        const head=A[0]||[];
-        rows = (A.slice(1)).map(r=>{ const o={}; head.forEach((h,i)=> o[h||('Col'+(i+1))]=r[i]); return o; });
-      }
-      const arr = rows.map(mapRow).filter(x=>x.barcode && x.name);
-      PRODUCTS = arr;
-      $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün yüklendi (Excel)`;
-      toast('Excel/CSV yüklendi');
-    }catch(e){ alert('Excel/CSV okunamadı: '+e); }
-  };
-
-  if(ext==='csv'){
-    const r=new FileReader(); r.onload=e=>handleWB(XLSX.read(e.target.result,{type:'string'})); r.readAsText(f);
-  }else{
-    const r=new FileReader(); r.onload=e=>handleWB(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true})); r.readAsArrayBuffer(f);
-  }
+  const handle=(wb)=>{ const sh=wb.Sheets[wb.SheetNames[0]]; let rows=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true,cellDates:true}); if(rows.length===0){ const A=XLSX.utils.sheet_to_json(sh,{header:1,defval:''}); const head=A[0]||[]; rows=A.slice(1).map(r=>{const o={}; head.forEach((h,i)=>o[h||('Col'+(i+1))]=r[i]); return o;}); } PRODUCTS=rows.map(mapRow).filter(x=>x.barcode && x.name); $('badgeData').innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length} ürün (Excel)`; toast('Excel/CSV yüklendi'); };
+  if(ext==='csv'){ const r=new FileReader(); r.onload=e=>handle(XLSX.read(e.target.result,{type:'string'})); r.readAsText(f); }
+  else { const r=new FileReader(); r.onload=e=>handle(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true})); r.readAsArrayBuffer(f); }
 });
 
-/* ===== SEARCH ===== */
+/* ===== Search ===== */
 function isOld(p){ return p.priceDate ? monthsDiff(new Date(p.priceDate))>=12 : false; }
-function showResults(title,arr){
-  LAST_RESULTS=arr; const L=$('mList'); $('mFilter').textContent=title; L.innerHTML='';
-  arr.slice(0,200).forEach(p=>{
+function openSearch(title, results){
+  const L=$('mList'); $('mFilter').textContent=title; $('mCount').textContent=results.length; L.innerHTML='';
+  results.forEach(p=>{
     const li=document.createElement('div'); li.className='item';
     li.innerHTML=`<div><div class="nm">${p.name}</div><div class="bc">${p.barcode}</div></div>
       <div>${isOld(p)?'<span class="tag-old">Eski fiyat</span>':''} <span style="font-weight:900;margin-left:8px">${fmtTRY.format(p.price)}</span></div>`;
     li.onclick=()=>{ $('mdlSearch').classList.remove('shown'); openProduct(p); };
     L.appendChild(li);
   });
-  $('mCount').textContent=arr.length;
   $('mdlSearch').classList.add('shown');
 }
-$('inpName').addEventListener('input', e=>{
-  const s=e.target.value.trim().toLowerCase(); if(s.length<2){ $('mdlSearch').classList.remove('shown'); return;}
-  const res=PRODUCTS.filter(p=>p.name.toLowerCase().includes(s)); if(res.length) showResults(`Ad: "${s}"`,res); else $('mdlSearch').classList.remove('shown');
-});
-$('inpBarcode').addEventListener('input', e=>{
-  const t=e.target.value.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; }
-  const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown');
-});
+function handleSearch(){
+  const name = $('inpName').value.trim().toLowerCase();
+  const last6 = $('inpBarcode').value.replace(/\D/g,'');
+  let res = PRODUCTS;
+  if(name.length>=2) res = res.filter(p=> (p.name||'').toLowerCase().includes(name));
+  if(last6.length>=2) res = res.filter(p=> (p.barcode||'').endsWith(last6));
+  if(res.length>0) openSearch(`Ad: "${name||'-'}", Son6: "${last6||'-'}"`, res.slice(0,300));
+}
+$('inpName').addEventListener('input', handleSearch);
+$('inpBarcode').addEventListener('input', handleSearch);
 $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remove('shown'));
 
-/* ===== POPUP (old style) ===== */
+/* ===== Product popup (old style) ===== */
 const mdl=$('mdlProduct');
 function openProduct(p){
   $('mName').textContent=p.name; $('mPrice').textContent=fmtTRY.format(p.price); $('mBarcode').textContent=p.barcode;
-  $('mDate').textContent = p.priceDate ? fmtDMY(p.priceDate) : '—';
-  $('mDateRow').style.display = p.priceDate ? 'block':'none';
-  $('mOld').style.display = isOld(p) ? 'block':'none';
-
+  $('mDate').textContent=p.priceDate?fmtDMY(p.priceDate):'—'; $('mDateRow').style.display=p.priceDate?'block':'none';
+  $('mOld').style.display=isOld(p)?'block':'none';
   mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),isOld(p)));
   $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,isOld(p)); };
-  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); };
+  $('btnCancel').onclick=()=> mdl.classList.remove('shown');
 }
+function setCartUI(){ $('cartCount').textContent=CART.reduce((a,x)=>a+x.qty,0); }
 function addToCart(p,qty,isOldFlag){
-  if(qty>=10){ if(!confirm('⚠️ Bu üründen 10+ adet. Emin misiniz?')) return; }
-  const idx = CART.findIndex(x=>x.barcode===p.barcode);
-  if(idx>-1) CART[idx].qty+=qty; else CART.push({...p, isOld:!!isOldFlag, qty});
-  setCart(CART);
-  mdl.classList.remove('shown');
+  if(qty>=10 && !confirm('⚠️ Bu üründen 10+ adet. Emin misiniz?')) return;
+  const i=CART.findIndex(x=>x.barcode===p.barcode);
+  if(i>-1) CART[i].qty+=qty; else CART.push({ barcode:p.barcode, name:p.name, price:p.price, isOld:!!isOldFlag, qty });
+  localStorage.setItem('etiket_cart', JSON.stringify(CART)); setCartUI(); mdl.classList.remove('shown'); toast('Sepete eklendi');
 }
 
-/* ===== DIAGNOSTICS (first 5 rows) ===== */
-$('btnDiag').addEventListener('click', ()=>{
-  const W=$('diagWrap'); W.innerHTML='';
-  PRODUCTS.slice(0,5).forEach((p,i)=>{
-    const d=document.createElement('div'); d.className='diagRow';
-    d.innerHTML = `<div class="diagHead">#${i+1} — ${p.name||'(isim yok)'}</div>
-      <div class="kv"><b>Barkod</b><div>${p.barcode}</div></div>
-      <div class="kv"><b>Fiyat</b><div>${fmtTRY.format(p.price)} <span style="color:#64748b;margin-left:6px">(raw OK)</span></div></div>
-      <div class="kv"><b>FD Tarihi</b><div>${p.priceDate?fmtDMY(p.priceDate):'—'}</div></div>`;
-    W.appendChild(d);
-  });
-  $('mdlDiag').classList.add('shown');
+/* ===== Print (stable) ===== */
+const { jsPDF }=window.jspdf;
+const labelCSS = `#etiketler{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.etiket{background:#fff;width:260px;height:100px;border-radius:14px;box-shadow:0 1px 6px #d7d7db33;display:flex;flex-direction:row;align-items:flex-start;padding:12px 12px 8px 6px;box-sizing:border-box;position:relative}.etiket-logo{width:60px;height:78px;margin-right:5px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:flex-start}.etiket-logo img{width:60px;height:auto;object-fit:contain}.etiket-icerik{display:flex;flex-direction:column;gap:6px;min-width:0}.etiket-stokadi{font:700 12px/1.25 Arial,system-ui,sans-serif;color:#0f172a;letter-spacing:.1px;max-height:32px;overflow:hidden}.etiket-row{display:grid;grid-template-columns:1fr 1fr;gap:2px;align-items:end}.etiket-fiyat{font:900 22px/1 Arial,system-ui;color:#0f172a}.tlsimge{font:700 12px Arial;margin-left:1px}.etiket-barkod img{height:44px;width:auto;display:block}`;
+function buildLabelNode(it) {
+  const canvas = document.createElement('canvas');
+  const fmt = /^[0-9]{13}$/.test(it.barcode) ? 'EAN13' : /^[0-9]{12}$/.test(it.barcode) ? 'UPC' : 'EAN13';
+  JsBarcode(canvas, it.barcode, { format: fmt, height: 42, width: 1.6, displayValue: true, font: 'Arial', fontSize: 12, textMargin: 2, margin: 0, lineColor: '#000' });
+  const barPng = canvas.toDataURL('image/jpeg', 0.82);
+  const priceStr = fmtTRY.format(it.price).replace('₺','');
+  const wrap = document.createElement('div'); 
+  wrap.className='etiket';
+  wrap.innerHTML = `<div class="etiket-logo"><img src="logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+  <div class="etiket-icerik">
+    <div class="etiket-stokadi">${it.name}</div>
+    <div class="etiket-row"><div class="etiket-fiyat">${priceStr} <span class="tlsimge">₺</span></div>
+    <div class="etiket-barkod"><img src="${barPng}" alt="Barkod"></div></div></div>`;
+  return wrap;
+}
+async function makeLabelsDoc(){
+  const A4W=210,A4H=297,cols=4,rows=10,margin=5;
+  const work=$('work'); work.innerHTML='';
+  const style=document.createElement('style'); style.textContent=labelCSS; work.appendChild(style);
+  const labels=[]; CART.forEach(it=>{ for(let i=0;i<it.qty;i++) labels.push(it); });
+  if(labels.length===0){ alert('Sepet boş.'); throw new Error('empty'); }
+  const per=cols*rows; const pages=Math.max(1,Math.ceil(labels.length/per)); let li=0; const doc=new jsPDF({unit:'mm',format:'a4'});
+
+  for(let pg=0;pg<pages;pg++){
+    const page=document.createElement('div');
+    page.style.cssText='width:794px;height:1123px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px;background:#fff';
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const holder=document.createElement('div');
+        holder.style.cssText='display:flex;align-items:center;justify-content:center;border:1px dashed #e5e7eb;border-radius:8px';
+        const it=labels[li++];
+        if(it){ holder.appendChild(buildLabelNode(it)); page.appendChild(holder); }
+      }
+    }
+    work.appendChild(page);
+    const canvas=await html2canvas(page,{scale:2,useCORS:true,allowTaint:true,background:'#fff'}); 
+    const img=canvas.toDataURL('image/jpeg', 0.75);
+    if(pg>0) doc.addPage(); doc.addImage(img,'JPEG',margin,margin,A4W-margin*2,A4H-margin*2);
+  }
+  return doc;
+}
+let __docURL=null, __doc=null;
+async function preparePreview(){
+  __doc = await makeLabelsDoc();
+  const blob = __doc.output('blob');
+  if(__docURL) URL.revokeObjectURL(__docURL);
+  __docURL=URL.createObjectURL(blob);
+  $('pdfFrame').src=__docURL;
+  $('mdlPdf').classList.add('shown');
+}
+$('btnPdfCancel').addEventListener('click', ()=> $('mdlPdf').classList.remove('shown'));
+$('btnPdfSave').addEventListener('click', ()=>{ if(__doc){ __doc.save(`etiketler_${new Date().toISOString().slice(0,10)}.pdf`); $('mdlPdf').classList.remove('shown'); } });
+
+/* Wire print */
+$('btnPrint').addEventListener('click', async ()=>{
+  try { await preparePreview(); } catch(e){ /* already alerted */ }
 });
-$('btnDiagClose').addEventListener('click', ()=> $('mdlDiag').classList.remove('shown'));
 
-/* ===== Minimal other modals for search ===== */
-const searchModal = document.createElement('div');
-searchModal.id='mdlSearch'; searchModal.className='modal';
-searchModal.innerHTML = `<div class="box"><h3>Filtrelenen Ürünler</h3><div class="mini">Filtre: <span id="mFilter"></span> — <span id="mCount">0</span> sonuç</div><div id="mList" class="list"></div><div class="actions" style="justify-content:flex-end"><button id="btnSearchClose" class="btn">Kapat</button></div></div>`;
-document.body.appendChild(searchModal);
-
+/* Save cart */
+$('btnSaveCart').addEventListener('click', ()=>{
+  const blob=new Blob([JSON.stringify(CART||[],null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sepet.json'; a.click();
+});
 </script>
 </body>
 </html>
