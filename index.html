@@ -309,7 +309,14 @@ function openProduct(p){
   mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
   $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,old); };
-  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
+  $('btnCancel').onclick=()=>{
+  mdl.classList.remove('shown');
+  refocusAfterAction(true);
+  if(window.__resumeAfter && typeof window.__requestCameraResume==='function'){
+    window.__resumeAfter=false;
+    setTimeout(()=>window.__requestCameraResume(), 120);
+  }
+};
 }
 function addToCart(p,qty,isOld){
   const idx = CART.findIndex(x => x.barcode === p.barcode);
@@ -319,6 +326,10 @@ function addToCart(p,qty,isOld){
   mdl.classList.remove('shown');
   beep(true);
   refocusAfterAction(true);
+  if(window.__resumeAfter && typeof window.__requestCameraResume==='function'){
+    window.__resumeAfter=false;
+    setTimeout(()=>window.__requestCameraResume(), 120);
+  }
 }
 
 /* ===== CART MODAL ===== */
@@ -381,22 +392,81 @@ $('btnPdfOldSave').addEventListener('click', ()=>{
   setTimeout(()=> alert('Eski fiyatlı ürünler PDF’i oluşturuldu. LÜTFEN YÖNETİCİNİZE GÖNDERİN.'), 200);
 });
 
-async function makeLabelsDoc(){
-  const { jsPDF }=window.jspdf; const A4W=210,A4H=297,cols=4,rows=10,margin=5;
-  const work=$('work'); work.innerHTML='';
-  const style=document.createElement('style'); style.textContent=labelCSS; work.appendChild(style);
-  const labels=[]; CART.forEach(it=>{ for(let i=0;i<it.qty;i++) labels.push(it); });
-  const per=cols*rows; const pages=Math.max(1,Math.ceil(labels.length/per)); let li=0; const doc=new jsPDF({unit:'mm',format:'a4'});
 
-  for(let pg=0;pg<pages;pg++){
-    const page=document.createElement('div');
-    page.style.cssText='width:794px;height:1123px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px;background:#fff';
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        const holder=document.createElement('div');
-        holder.style.cssText='display:flex;align-items:center;justify-content:center;border:1px dashed #e5e7eb;border-radius:8px';
-        const it=labels[li++];
-        if(it){ holder.appendChild(buildLabelNode(it)); }
+async function makeLabelsDoc(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', compress:true });
+
+  // A4 ve 3x8 ızgara
+  const page = { w:210, h:297 };
+  const cols = 3, rows = 8;
+  const margin = { x:8, y:8 };
+  const gutter = { x:4, y:4 };
+  const cellW = (page.w - margin.x*2 - gutter.x*(cols-1)) / cols;
+  const cellH = (page.h - margin.y*2 - gutter.y*(rows-1)) / rows;
+
+  // Logo hazırlığı (dataURL)
+  async function getLogo(){
+    try{
+      if(window.__logoCache) return window.__logoCache;
+      const res = await fetch('logo.png', {cache:'no-cache'});
+      const blob = await res.blob();
+      const fr = new FileReader();
+      const p = new Promise(res2 => { fr.onload = ()=>res2(fr.result); });
+      fr.readAsDataURL(blob);
+      const url = await p;
+      window.__logoCache = url;
+      return url;
+    }catch(e){ return null; }
+  }
+  const logo = await getLogo();
+
+  // CART'u kopyala -> adetlere göre genişlet
+  const items = [];
+  CART.forEach(it => { for(let i=0;i<it.qty;i++) items.push(it); });
+
+  let x = margin.x, y = margin.y, c = 0, r = 0;
+  let printed = 0, oldCount = 0;
+
+  function addLabel(it){
+    // logo (sol üst)
+    if(logo){
+      try { doc.addImage(logo, 'PNG', x+2.5, y+2, 16, 6); } catch(_){}
+    }
+    // stok adı
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    const name = String(it.name||'-');
+    const maxW = cellW - 10;
+    doc.text(doc.splitTextToSize(name, maxW), x+5, y+12);
+
+    // fiyat
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    const priceStr = (new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY'})).format(it.price);
+    doc.text(priceStr, x+5, y+20);
+
+    // barkod (PNG)
+    const cv = document.createElement('canvas');
+    const fmt = (/^\d{13}$/.test(it.barcode)) ? 'EAN13' : 'CODE128';
+    JsBarcode(cv, it.barcode, { format: fmt, width:1.6, height:18, displayValue:false, margin:0 });
+    doc.addImage(cv.toDataURL('image/png'),'PNG', x+5, y+22, Math.min(cellW-10, 60), 18);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(it.barcode, x+cellW/2, y+22+18+5, {align:'center'});
+
+    if(it.isOld) oldCount++;
+    printed++;
+  }
+
+  for(const it of items){
+    addLabel(it);
+    c++; if(c<cols){ x += cellW + gutter.x; }
+    else { c=0; x=margin.x; r++; if(r<rows){ y += cellH + gutter.y; } else { r=0; y=margin.y; doc.addPage(); } }
+  }
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text(`Toplam etiket: ${printed} • Eski fiyatlı: ${oldCount}`, page.w - 8, page.h - 6, {align:'right'});
+  return doc;
+}
+
         page.appendChild(holder);
       }
     }
@@ -411,18 +481,43 @@ async function makeLabelsDoc(){
   return doc;
 }
 
+
 async function makeOldListDoc(){
-  const old=CART.filter(x=>x.isOld);
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', compress:true });
 
-  const wrap=document.createElement('div'); wrap.style.cssText='width:794px;min-height:1123px;background:#fff;padding:18px';
-  const h=document.createElement('div'); h.textContent='Eski Fiyatlı Ürünler'; h.style.cssText='font-weight:900;font-size:22px;margin-bottom:8px'; wrap.appendChild(h);
-  const sub=document.createElement('div'); sub.textContent=`Tarih: ${new Date().toLocaleDateString('tr-TR')}  •  Toplam: ${old.reduce((a,x)=>a+x.qty,0)} etiket`; sub.style.cssText='color:#475569;margin-bottom:12px'; wrap.appendChild(sub);
+  const old = CART.filter(x => x.isOld);
+  const page = { w:210, h:297 };
+  let y = 12;
 
-  const list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:8px';
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('Eski Fiyatlı Ürünler', 10, y); y += 8;
+  doc.setFont('helvetica','normal'); doc.setFontSize(11);
+  const total = old.reduce((a,x)=>a+x.qty,0);
+  doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}  •  Toplam: ${total} etiket`, 10, y); y += 8;
+
   if(old.length===0){
-    const no=document.createElement('div'); no.textContent='Eski fiyatlı ürün bulunmadı.'; list.appendChild(no);
+    doc.text('Eski fiyatlı ürün bulunmadı.', 10, y+4);
+    return doc;
   }
+
+  for(const it of old){
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(String(it.name||'-').slice(0,80), 10, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.text(it.barcode, 10, y+6);
+
+    const cv = document.createElement('canvas');
+    const fmt = (/^\d{13}$/.test(it.barcode)) ? 'EAN13' : 'CODE128';
+    JsBarcode(cv, it.barcode, { format: fmt, width:1.6, height:16, displayValue:false, margin:0 });
+    doc.addImage(cv.toDataURL('image/png'), 'PNG', page.w-80, y-6, 70, 18);
+
+    y += 24;
+    if(y > page.h - 20){ doc.addPage(); y = 12; }
+  }
+  return doc;
+}
+
   old.forEach(it=>{
     const cvs=document.createElement('canvas');
     const fmt=/^[0-9]{13}$/.test(it.barcode)?'EAN13':'CODE128';
@@ -516,6 +611,7 @@ async function makeOldListDoc(){
   }
 
   async function startCamera(){
+    window.__requestCameraResume = startCamera;
     if(starting||scanning) return;
     starting=true; setBtnBusy(true);
     camSheet.style.display='block';
@@ -697,6 +793,7 @@ async function makeOldListDoc(){
   const mo2=new MutationObserver(()=>{ if(resumeAfter) tryResume(); }); mo2.observe(document.body,{subtree:true, childList:true});
 
   function onDetected(code){
+    window.__resumeAfter = true;
     if(!code) return;
     const now=Date.now();
     if(code===lastCode && (now-lastHit)<900) return;
@@ -800,6 +897,7 @@ async function makeOldListDoc(){
   }
 
   async function startIOS(){
+    window.__requestCameraResume = startIOS;
     if(starting||scanning) return;
     starting=true;
     camSheet.style.display='block';
@@ -887,7 +985,9 @@ async function makeOldListDoc(){
   }
 
   function isValidEAN13(code){ if(!/^\d{13}$/.test(code)) return false; let sum=0; for(let i=0;i<12;i++) sum += parseInt(code[i],10)*(i%2===0?1:3); return ((10-(sum%10))%10) === parseInt(code[12],10); }
-  function onDetected(code){
+  function onDetected(code){ 
+    window.__resumeAfter = true;
+
     if(!code) return;
     if(code.length===13 && !isValidEAN13(code)) return;
     stopCamera(); closeSheet();
