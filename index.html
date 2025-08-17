@@ -340,7 +340,7 @@ function buildLabelNode(it) {
   const canvas = document.createElement('canvas');
   const fmt = /^[0-9]{13}$/.test(it.barcode) ? 'EAN13' : 'CODE128';
   JsBarcode(canvas, it.barcode, { format: fmt, height: 44, width: 2, displayValue: true, font: 'Arial', fontSize: 12, textMargin: 2, margin: 0, lineColor: '#000' });
-  const barPng = canvas.toDataURL('image/png');
+  const barPng = canvas.toDataURL('image/jpeg', 0.82);
   const priceStr = fmtTRY.format(it.price).replace('₺','');
   const wrap = document.createElement('div'); 
   wrap.className='etiket';
@@ -381,8 +381,29 @@ $('btnPdfOldSave').addEventListener('click', ()=>{
   setTimeout(()=> alert('Eski fiyatlı ürünler PDF’i oluşturuldu. LÜTFEN YÖNETİCİNİZE GÖNDERİN.'), 200);
 });
 
-canvas.toDataURL('image/jpeg', 0.82);
-    if(pg>0) doc.addPage(); doc.addImage(img,'PNG',margin,margin,A4W-margin*2,A4H-margin*2);
+async function makeLabelsDoc(){
+  const { jsPDF }=window.jspdf; const A4W=210,A4H=297,cols=4,rows=10,margin=5;
+  const work=$('work'); work.innerHTML='';
+  const style=document.createElement('style'); style.textContent=labelCSS; work.appendChild(style);
+  const labels=[]; CART.forEach(it=>{ for(let i=0;i<it.qty;i++) labels.push(it); });
+  const per=cols*rows; const pages=Math.max(1,Math.ceil(labels.length/per)); let li=0; const doc=new jsPDF({unit:'mm',format:'a4'});
+
+  for(let pg=0;pg<pages;pg++){
+    const page=document.createElement('div');
+    page.style.cssText='width:794px;height:1123px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px;background:#fff';
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const holder=document.createElement('div');
+        holder.style.cssText='display:flex;align-items:center;justify-content:center;border:1px dashed #e5e7eb;border-radius:8px';
+        const it=labels[li++];
+        if(it){ holder.appendChild(buildLabelNode(it)); }
+        page.appendChild(holder);
+      }
+    }
+    work.appendChild(page);
+    const canvas=await html2canvas(page,{scale:3,useCORS:true,allowTaint:true,background:'#fff'}); 
+    const img=canvas.toDataURL('image/jpeg', 0.82);
+    if(pg>0) doc.addPage(); doc.addImage(img,'JPEG',margin,margin,A4W-margin*2,A4H-margin*2);
   }
 
   const total=CART.reduce((a,x)=>a+x.qty,0), oldCount=CART.reduce((a,x)=>a+(x.isOld?x.qty:0),0);
@@ -390,8 +411,39 @@ canvas.toDataURL('image/jpeg', 0.82);
   return doc;
 }
 
-canvas.toDataURL('image/jpeg', 0.82);
-  doc.addImage(img,'PNG',5,5,200,287);
+async function makeOldListDoc(){
+  const old=CART.filter(x=>x.isOld);
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
+
+  const wrap=document.createElement('div'); wrap.style.cssText='width:794px;min-height:1123px;background:#fff;padding:18px';
+  const h=document.createElement('div'); h.textContent='Eski Fiyatlı Ürünler'; h.style.cssText='font-weight:900;font-size:22px;margin-bottom:8px'; wrap.appendChild(h);
+  const sub=document.createElement('div'); sub.textContent=`Tarih: ${new Date().toLocaleDateString('tr-TR')}  •  Toplam: ${old.reduce((a,x)=>a+x.qty,0)} etiket`; sub.style.cssText='color:#475569;margin-bottom:12px'; wrap.appendChild(sub);
+
+  const list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:8px';
+  if(old.length===0){
+    const no=document.createElement('div'); no.textContent='Eski fiyatlı ürün bulunmadı.'; list.appendChild(no);
+  }
+  old.forEach(it=>{
+    const cvs=document.createElement('canvas');
+    const fmt=/^[0-9]{13}$/.test(it.barcode)?'EAN13':'CODE128';
+    JsBarcode(cvs,it.barcode,{format:fmt,height:36,displayValue:false,margin:0,lineColor:'#000',width:2});
+    const png=cvs.toDataURL('image/png');
+
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px';
+    const left=document.createElement('div');
+    left.innerHTML=`<div style="font-weight:800">${it.name}</div><div style="color:#475569;font-family:Arial">${it.barcode}</div>`;
+    const right=document.createElement('div');
+    right.innerHTML=`<img src="${png}" alt="barkod" style="height:36px">`;
+
+    row.appendChild(left); row.appendChild(right); list.appendChild(row);
+  });
+  wrap.appendChild(list);
+
+  $('work').innerHTML=''; $('work').appendChild(wrap);
+  const canvas=await html2canvas(wrap,{scale:3,useCORS:true,allowTaint:true,background:'#fff'}); 
+  const img=canvas.toDataURL('image/jpeg', 0.82);
+  doc.addImage(img,'JPEG',5,5,200,287);
   return doc;
 }
 
