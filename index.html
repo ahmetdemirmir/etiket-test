@@ -677,6 +677,7 @@ async function makeLabelsDoc(){
     for(const p of recentFiltered){ const key=p.name+'__'+p.price; if(!map.has(key)) map.set(key, []); map.get(key).push(p); }
 
     const L=document.createElement('div'); L.className='list';
+    if(map.size===0){ const msg=document.createElement('div'); msg.className='empty'; msg.textContent='Son 10 günde fiyatı değişen ve filtreye takılmayan ürün yok.'; L.appendChild(msg); }
     for(const [key,arr] of map){ const [nm,price]=key.split('__'); const card=document.createElement('div'); card.className='groupCard'; card.innerHTML=`<div class="ttl">${nm}${arr.length>1?' <span class="mini">(VE RENKLERİ)</span>':''}</div><div class="mini">${fmtTRY.format(+price)} • ${arr.length} barkod</div><div class="variants"></div>`; const v=card.querySelector('.variants');
       arr.forEach(p=>{ const chip=document.createElement('div'); chip.className='variant'; chip.textContent=p.barcode; chip.title=p.barcode; chip.onclick=()=>{ try{ md.remove(); }catch(_){ } openProduct(p); }; v.appendChild(chip); });
       L.appendChild(card);
@@ -828,11 +829,8 @@ async function makeLabelsDoc(){
         window.__nfPreventAutoRestart = false;
       } else {
         restartLock = true;
-        setTimeout(() => { 
-          safeStartCamera(); 
-          restartLock = false; 
-        }, 250);
-      }
+        setTimeout(() => { /* auto-restart disabled by policy */ restartLock = false; }, 250);
+}
       everOpenedThisCycle = false; 
     }
     wasOpen = anyOpen;
