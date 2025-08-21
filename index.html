@@ -142,6 +142,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 </style>
 </head>
 <body>
+<script>window.__allowAutoCamRestart=false;</script>
 <header>
   <img src="logo.png" alt="Logo" />
   <h1>Fiyat Gör Etiket Bas</h1>
@@ -811,11 +812,8 @@ async function makeLabelsDoc(){
         window.__nfPreventAutoRestart = false;
       } else {
         restartLock = true;
-        setTimeout(() => { 
-          safeStartCamera(); 
-          restartLock = false; 
-        }, 250);
-      }
+        setTimeout(()=>{ if(window.__allowAutoCamRestart) safeStartCamera(); restartLock=false; },250);
+}
       everOpenedThisCycle = false; 
     }
     wasOpen = anyOpen;
@@ -940,6 +938,31 @@ async function makeLabelsDoc(){
   document.addEventListener('product-not-found', function(ev){
     const code = ev && ev.detail ? ev.detail.code : undefined;
     show(code);
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  const bookKeywords = ['kitap','kültür','kaynak','roman','hikaye','masal','deneme','yayın','test','soru bankası'];
+  function isBook(text){ const s=(text||'').toLowerCase(); return bookKeywords.some(k=> s.includes(k)); }
+  function filterFD10(){
+    const closeEl = document.getElementById('fd10Close');
+    const md = closeEl ? closeEl.closest('.modal') : null;
+    if(!md) return;
+    md.querySelectorAll('.item, .card, .fd-row').forEach(el=>{
+      const s = el.textContent || '';
+      if(isBook(s)) el.remove();
+    });
+    md.addEventListener('click', function(ev){
+      const chip = ev.target.closest && ev.target.closest('.variants .variant');
+      if(chip){ try{ md.remove(); }catch(_){ } }
+    });
+  }
+  document.addEventListener('click', function(ev){
+    const btn = ev.target.closest ? ev.target.closest('#btnFD10') : null;
+    if(btn){ setTimeout(filterFD10, 80); }
   });
 })();
 </script>
