@@ -530,21 +530,6 @@ try{
     __docLabels.save(`etiketler_${new Date().toISOString().slice(0,10)}.pdf`);
     $('mdlPdf').classList.remove('shown');
 
-  // Etiket PDF'i için "Paylaş" penceresini otomatik aç
-  try{
-    const __labelsName = `etiketler_${new Date().toISOString().slice(0,10)}.pdf`;
-    const __labelsBlob = __docLabels.output('blob');
-    const __labelsFile = new File([__labelsBlob], __labelsName, { type:'application/pdf' });
-    if(navigator.share && navigator.canShare && navigator.canShare({ files:[__labelsFile] })){
-      await navigator.share({ files:[__labelsFile], title:'Etiket PDF', text:'Etiket PDF paylaşımı' });
-    }else{
-      const __u = URL.createObjectURL(__labelsBlob);
-      const __a = document.createElement('a'); __a.href=__u; __a.download=__labelsFile.name; __a.click();
-      setTimeout(()=>URL.revokeObjectURL(__u), 5000);
-    }
-  }catch(__e){ /* paylaşım mümkün değilse sessiz geç */ }
-
-
     // Eski listeyi hazırla-ve-göster (ayrı PDF)
     __docOld = await makeOldListDoc();
     const blobOld = __docOld.output('blob');
@@ -660,26 +645,23 @@ async function makeLabelsDoc(){
   });
 
   window.addEventListener('beforeunload', (e)=>{
-  if (typeof CART !== 'undefined' && CART && CART.length>0) {
-    try{
-      const ok = confirm('Çıkarken sepeti JSON olarak indirmek ister misiniz?');
-      if(ok){ try{ downloadJSON('sepet.json', CART); }catch(_){} }
-    }catch(_){}
-  }
-});
-/* ===== FD Son 10 Gün Liste + Gruplama ===== */
+    if(CART.length>0){ // otomatik indirme
+      try{ downloadJSON('sepet.json', CART); }catch(_){};
+    }
+  });
+
+  /* ===== FD Son 10 Gün Liste + Gruplama ===== */
   $('btnFD10').addEventListener('click', ()=>{
     const now=Date.now();
     const ten=10*86400000;
     const recent=PRODUCTS.filter(p=> p.priceDate && (now - new Date(p.priceDate).getTime()) <= ten);
     // Grup anahtarı: isim + fiyat
     const map=new Map();
-    for(const p of recentFiltered){ const key=p.name+'__'+p.price; if(!map.has(key)) map.set(key, []); map.get(key).push(p); }
+    for(const p of recent){ const key=p.name+'__'+p.price; if(!map.has(key)) map.set(key, []); map.get(key).push(p); }
 
     const L=document.createElement('div'); L.className='list';
-    if(map.size===0){ const msg=document.createElement('div'); msg.className='empty'; msg.textContent='Son 10 günde fiyatı değişen ve filtreye takılmayan ürün yok.'; L.appendChild(msg); }
     for(const [key,arr] of map){ const [nm,price]=key.split('__'); const card=document.createElement('div'); card.className='groupCard'; card.innerHTML=`<div class="ttl">${nm}${arr.length>1?' <span class="mini">(VE RENKLERİ)</span>':''}</div><div class="mini">${fmtTRY.format(+price)} • ${arr.length} barkod</div><div class="variants"></div>`; const v=card.querySelector('.variants');
-      arr.forEach(p=>{ const chip=document.createElement('div'); chip.className='variant'; chip.textContent=p.barcode; chip.title=p.barcode; chip.onclick=()=>{ try{ md.remove(); }catch(_){ } openProduct(p); }; v.appendChild(chip); });
+      arr.forEach(p=>{ const chip=document.createElement('div'); chip.className='variant'; chip.textContent=p.barcode; chip.title=p.barcode; chip.onclick=()=> openProduct(p); v.appendChild(chip); });
       L.appendChild(card);
     }
 
@@ -829,8 +811,11 @@ async function makeLabelsDoc(){
         window.__nfPreventAutoRestart = false;
       } else {
         restartLock = true;
-        setTimeout(() => { /* auto-restart disabled by policy */ restartLock = false; }, 250);
-}
+        setTimeout(() => { 
+          safeStartCamera(); 
+          restartLock = false; 
+        }, 250);
+      }
       everOpenedThisCycle = false; 
     }
     wasOpen = anyOpen;
