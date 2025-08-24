@@ -387,7 +387,7 @@ function getBarcodePng(code){
   const wantEAN = (key.length === 13) && isValidEAN13(key);
   const fmt = wantEAN ? 'EAN13' : 'CODE128';
 
-  const opts = {format: fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:14,textMargin:2,margin:0,lineColor:'#000'};
+  const opts = {format: fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:16,textMargin:2,margin:0,lineColor:'#000'};
 
   try{
     JsBarcode(cvs,key,opts);
@@ -613,7 +613,7 @@ async function makeLabelsDoc(){
   work.innerHTML='';
 
   // Dinamik çözünürlük: çok sayfa varsa belleği koru
-  const SCALE = labels.length > 54 ? 4 : 6; // >2 sayfa ise 4, aksi halde 6
+  const SCALE = 6; // >2 sayfa ise 4, aksi halde 6
 
   for(let p=0; p<pages; p++){
     if(p>0) doc.addPage();
