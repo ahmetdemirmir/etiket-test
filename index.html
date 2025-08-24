@@ -364,15 +364,47 @@ $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remo
 
 /* ===== PRODUCT POPUP & CART ===== */
 // Barkod görseli için önbellek — ağır yükte hızlandırır
+
+// EAN13 validator
+function isValidEAN13(code){
+  const c = String(code||'').replace(/\D/g,'');
+  if (c.length !== 13) return false;
+  const d12 = c.slice(0,12).split('').map(Number);
+  const sum = d12.reduce((s,d,i)=> s + d * (i%2 ? 3 : 1), 0);
+  const chk = (10 - (sum % 10)) % 10;
+  return chk === Number(c[12]);
+}
+
+// Barkod görseli için önbellek — ağır yükte hızlandırır + EAN13 fallback
 const BARCODE_CACHE = new Map();
 function getBarcodePng(code){
-  const key = String(code||'').trim();
-  if(BARCODE_CACHE.has(key)) return BARCODE_CACHE.get(key);
+  const keyRaw = String(code||'').trim();
+  if(BARCODE_CACHE.has(keyRaw)) return BARCODE_CACHE.get(keyRaw);
+
+  const key = keyRaw.replace(/\D/g,'');
   const cvs=document.createElement('canvas');
-  const fmt=/^\d{13}$/.test(key)?'EAN13':'CODE128';
-  JsBarcode(cvs,key,{format:fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:14,textMargin:2,margin:0,lineColor:'#000'});
+
+  const wantEAN = (key.length === 13) && isValidEAN13(key);
+  const fmt = wantEAN ? 'EAN13' : 'CODE128';
+
+  const opts = {format: fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:14,textMargin:2,margin:0,lineColor:'#000'};
+
+  try{
+    JsBarcode(cvs,key,opts);
+  }catch(e){
+    try{
+      JsBarcode(cvs,key,{...opts, format:'CODE128'});
+    }catch(e2){
+      const ctx = cvs.getContext('2d');
+      cvs.width = 180; cvs.height = 60;
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,cvs.width,cvs.height);
+      ctx.fillStyle = '#000'; ctx.font='12px Arial';
+      ctx.fillText('Barkod render edilemedi', 10, 30);
+    }
+  }
+
   const url=cvs.toDataURL('image/jpeg',0.82);
-  BARCODE_CACHE.set(key,url);
+  BARCODE_CACHE.set(keyRaw,url);
   return url;
 }
 
@@ -507,8 +539,8 @@ $('btnPrint').addEventListener('click', async ()=>{
     await makeAndShowLabelsPreview();
   }
 });
-$('btnOldCancel').addEventListener('click', ()=> $('mdlOldWarn').classList.remove('shown'));
-$('btnOldContinue').addEventListener('click', async ()=>{ $('mdlOldWarn').classList.remove('shown'); await makeAndShowLabelsPreview(); });
+// disabled old warn
+// disabled old warn continue
 
 async function makeAndShowLabelsPreview(){
   try{
@@ -882,6 +914,46 @@ $('btnFD10').addEventListener('click', ()=>{
   document.getElementById('btnCamIOS').addEventListener('click', ()=> startIOS(true));
   window.__startIOS = (force)=>{ if(force && LAST_CAM_MODE==='ios' && CAMERA_WAS_USER_CLOSED===false){ startIOS(false); } };
 })();
+
+
+// === DIRECT PRINT (no preview) ===
+async function directPrint(){
+  if(IS_PRINTING) return;
+  if(CART.length===0){ alert('Sepet boş.'); return; }
+  try{
+    IS_PRINTING=true; const b1=$('btnPrint'); const b2=$('btnCartPrint'); if(b1) b1.disabled=true; if(b2) b2.disabled=true;
+
+    // create labels pdf
+    const doc = await makeLabelsDoc();
+    const stamp = (function(){
+      const d = new Date();
+      const pad = (n)=>String(n).padStart(2,'0');
+      return d.getFullYear().toString()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+'_'+String(d.getMilliseconds()).padStart(3,'0')+'_'+Math.floor(Math.random()*1000);
+    })();
+    const fname = 'etiketler_'+stamp+'.pdf';
+    doc.save(fname);
+
+    // if old items exist, auto-generate & save the "old prices" PDF too
+    if(hasOldInCart()){
+      try{
+        const oldDoc = await makeOldListDoc();
+        oldDoc.save('eski_fiyatli_'+stamp+'.pdf');
+        // info alert as requested in model context
+        setTimeout(()=>{
+          alert("Fiyat değişiklik tarihi eski olan ürünlerin PDF’si oluşturuldu. LÜTFEN GRUBA GÖNDERİN.");
+        }, 300);
+      }catch(_){ /* fail silently */ }
+    }
+  }catch(e){
+    alert('Yazdırma sırasında hata: '+ (e?.message||e));
+  }finally{
+    IS_PRINTING=false; const b1=$('btnPrint'); const b2=$('btnCartPrint'); if(b1) b1.disabled=false; if(b2) b2.disabled=false;
+  }
+}
+
+
+$('btnPrint').onclick = directPrint;
+$('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); directPrint(); };
 
 })(); // IIFE end
 </script>
