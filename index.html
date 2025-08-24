@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Fiyat Gör Etiket Bas — 27/sayfa • yüksek çözünürlük • FINAL v3.2 • shift 8px</title>
+<title>Fiyat Gör Etiket Bas — 27/sayfa • yüksek çözünürlük • FIX v3.2.1</title>
 
 <!-- Icons & Libs -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous"/>
@@ -155,6 +154,8 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
       <button id="btnFD10" class="btn neutral"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Günde Değişenler</button>
       <button id="btnSaveCart" class="btn neutral"><i class="fa-solid fa-file-arrow-down"></i> Sepeti Kaydet</button>
+      <button id="btnLoadCart" class="btn neutral"><i class="fa-solid fa-file-arrow-up"></i> Sepeti Yükle</button>
+      <input id="fileCart" type="file" accept=".json" style="display:none" />
     </div>
     <small class="hint">Excel yükleyin, barkodun son 6 hanesiyle veya ürün adıyla arayın; <b>KAMERA</b> ile okutunca ürün popup'ı direkt açılır.</small>
   </div>
@@ -239,7 +240,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 (function(){
 // === LAYOUT CONFIG (27/sayfa) ===
 const LABELS_PER_PAGE = { cols: 3, rows: 9, gapPx: 6, pagePaddingPx: 12 }; // 3x9=27
-const EDGE_SHIFT_PX = 8; // Sol kolon -4px, sağ kolon +4px
+const EDGE_SHIFT_PX = 4; // Sol kolon -4px, sağ kolon +4px
 
 /* ===== STATE ===== */
 let PRODUCTS=[];
@@ -255,6 +256,9 @@ let __docLabels=null, __docOld=null, pendingOldBlobURL=null, pendingLabelsBlobUR
 let LAST_CAM_MODE=null;                 // 'android' | 'ios' | null
 let CAMERA_WAS_USER_CLOSED=true;        // kullanıcı kapattı mı?
 let LAST_OPEN_SOURCE='manual';          // 'scanner' | 'manual'
+
+// YAZDIRMA DURUM BAYRAĞI
+let IS_PRINTING=false;
 
 /* ===== EL ===== */
 const $=id=>document.getElementById(id);
@@ -359,12 +363,22 @@ inpBarcode.addEventListener('input', ()=>{ filterByLast6(inpBarcode.value); });
 $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remove('shown'));
 
 /* ===== PRODUCT POPUP & CART ===== */
+// Barkod görseli için önbellek — ağır yükte hızlandırır
+const BARCODE_CACHE = new Map();
+function getBarcodePng(code){
+  const key = String(code||'').trim();
+  if(BARCODE_CACHE.has(key)) return BARCODE_CACHE.get(key);
+  const cvs=document.createElement('canvas');
+  const fmt=/^\d{13}$/.test(key)?'EAN13':'CODE128';
+  JsBarcode(cvs,key,{format:fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:14,textMargin:2,margin:0,lineColor:'#000'});
+  const url=cvs.toDataURL('image/jpeg',0.82);
+  BARCODE_CACHE.set(key,url);
+  return url;
+}
+
 function buildPreview(p){
   try{
-    const cvs=document.createElement('canvas');
-    const fmt=/^\d{13}$/.test(p.barcode)?'EAN13':'CODE128';
-    JsBarcode(cvs,p.barcode,{format:fmt,height:36,width:2,displayValue:false,margin:0,lineColor:'#000'});
-    $('previewBarcode').src=cvs.toDataURL('image/png');
+    $('previewBarcode').src=getBarcodePng(p.barcode);
     $('previewName').textContent=p.name; $('previewPrice').textContent=fmtTRY.format(p.price);
     $('previewLabel').style.display='flex';
   }catch(_){ $('previewLabel').style.display='none'; }
@@ -433,10 +447,7 @@ $('toggleFx').checked=!!FX; $('toggleFx').addEventListener('change', ()=>{ FX=$(
 
 /* ===== LABEL RENDERER (UI preview) ===== */
 function buildLabelNode(it){
-  const canvas=document.createElement('canvas');
-  const fmt=/^[0-9]{13}$/.test(it.barcode)?'EAN13':'CODE128';
-  JsBarcode(canvas,it.barcode,{format:fmt,height:48,width:2.2,displayValue:true,font:'Arial',fontSize:14,textMargin:2,margin:0,lineColor:'#000'});
-  const barPng=canvas.toDataURL('image/jpeg',0.82);
+  const barPng=getBarcodePng(it.barcode);
   const priceStr=fmtTRY.format(it.price).replace('₺','');
   const wrap=document.createElement('div');
   wrap.className='etiket';
@@ -488,6 +499,7 @@ function buildLabelNode(it){
 function hasOldInCart(){ return CART.some(x=>x.isOld); }
 
 $('btnPrint').addEventListener('click', async ()=>{
+  if(IS_PRINTING) return;
   if(CART.length===0){ alert('Sepet boş.'); return; }
   if(hasOldInCart()){
     $('mdlOldWarn').classList.add('shown');
@@ -499,14 +511,22 @@ $('btnOldCancel').addEventListener('click', ()=> $('mdlOldWarn').classList.remov
 $('btnOldContinue').addEventListener('click', async ()=>{ $('mdlOldWarn').classList.remove('shown'); await makeAndShowLabelsPreview(); });
 
 async function makeAndShowLabelsPreview(){
-  __docLabels = await makeLabelsDoc();
-  const blob = __docLabels.output('blob');
-  if(pendingLabelsBlobURL) URL.revokeObjectURL(pendingLabelsBlobURL);
-  pendingLabelsBlobURL = URL.createObjectURL(blob);
-  $('pdfFrame').src = pendingLabelsBlobURL; $('mdlPdf').classList.add('shown');
+  try{
+    IS_PRINTING=true; const btn=$('btnPrint'); if(btn) btn.disabled=true;
+    __docLabels = await makeLabelsDoc();
+    const blob = __docLabels.output('blob');
+    if(pendingLabelsBlobURL) URL.revokeObjectURL(pendingLabelsBlobURL);
+    pendingLabelsBlobURL = URL.createObjectURL(blob);
+    $('pdfFrame').src = pendingLabelsBlobURL; $('mdlPdf').classList.add('shown');
+  } finally {
+    IS_PRINTING=false; const btn=$('btnPrint'); if(btn) btn.disabled=false;
+  }
 }
 
-$('btnPdfCancel').addEventListener('click', ()=> $('mdlPdf').classList.remove('shown'));
+$('btnPdfCancel').addEventListener('click', ()=> {
+  $('mdlPdf').classList.remove('shown');
+  try{ if(pendingLabelsBlobURL){ URL.revokeObjectURL(pendingLabelsBlobURL); pendingLabelsBlobURL=null; } }catch(_){}
+});
 $('btnPdfSave').addEventListener('click', async ()=>{
   const totalNow = CART.reduce((a,x)=>a+x.qty,0);
   TOTAL_PRINTED += totalNow;
@@ -523,7 +543,10 @@ $('btnPdfSave').addEventListener('click', async ()=>{
   $('mdlPdfOld').classList.add('shown');
 });
 
-$('btnPdfOldCancel').addEventListener('click', ()=> $('mdlPdfOld').classList.remove('shown'));
+$('btnPdfOldCancel').addEventListener('click', ()=> {
+  $('mdlPdfOld').classList.remove('shown');
+  try{ if(pendingOldBlobURL){ URL.revokeObjectURL(pendingOldBlobURL); pendingOldBlobURL=null; } }catch(_){}
+});
 $('btnPdfOldSave').addEventListener('click', ()=>{
   __docOld.save(`eski_fiyatli_${new Date().toISOString().slice(0,10)}.pdf`);
   const log = JSON.parse(localStorage.getItem('etiket_log')||'[]');
@@ -557,18 +580,23 @@ async function makeLabelsDoc(){
   const work = document.getElementById('work') || (()=>{const d=document.createElement('div'); d.id='work'; d.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0'; document.body.appendChild(d); return d;})();
   work.innerHTML='';
 
+  // Dinamik çözünürlük: çok sayfa varsa belleği koru
+  const SCALE = labels.length > 54 ? 4 : 6; // >2 sayfa ise 4, aksi halde 6
+
   for(let p=0; p<pages; p++){
     if(p>0) doc.addPage();
     const slice = labels.slice(p*per, p*per + per);
     while(slice.length < per) slice.push(null);
 
-    const pageNode = await renderPageWithOriginalDOM(doc, slice.filter(Boolean));
+    const pageNode = await renderPageWithOriginalDOM(doc, slice);
     work.appendChild(pageNode);
 
-    // Yüksek çözünürlük: scale = 6
-    const canvas = await html2canvas(pageNode,{scale:6,useCORS:true,allowTaint:true,background:'#fff'});
+    const canvas = await html2canvas(pageNode,{scale:SCALE,useCORS:true,allowTaint:true,background:'#fff', logging:false});
     const img = canvas.toDataURL('image/jpeg',0.92);
     doc.addImage(img,'JPEG',margin,margin,A4W-margin*2,A4H-margin*2);
+
+    // Bellek temizliği — sayfa DOM'unu hemen kaldır
+    try{ work.removeChild(pageNode); }catch(_){}
 
     if(p===pages-1){
       const total = CART.reduce((a,x)=>a+x.qty,0);
@@ -581,6 +609,9 @@ async function makeLabelsDoc(){
       doc.text('Devamı sonraki sayfada…', A4W-10, A4H-3, {align:'right'});
     }
   }
+
+  // Son temizleme
+  try{ work.innerHTML=''; }catch(_){}
   return doc;
 }
 
@@ -597,42 +628,49 @@ async function renderPageWithOriginalDOM(doc, labelsSlice){
   const page = document.createElement('div');
   page.style.cssText = `width:${pagePxW}px;height:${pagePxH}px;display:grid;grid-template-columns:repeat(${cols},${cellW}px);grid-auto-rows:${cellH}px;gap:${gap}px;padding:${pad}px;background:#fff;`;
 
-  for(let i=0;i<labelsSlice.length;i++){
-    const it = labelsSlice[i];
-    const colIndex = i % cols; // 0: sol, 1: orta, 2: sağ
+  // Column-major placement: left column fills top-to-bottom, then middle, then right.
+  for(let r=0; r<rows; r++){
+    for(let c=0; c<cols; c++){
+      const idx = c*rows + r; // column-major index into labelsSlice
+      const it = labelsSlice[idx] || null;
 
-    const cell = document.createElement('div');
-    cell.style.cssText = "position:relative;overflow:visible;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;";
+      const cell = document.createElement('div');
+      cell.style.cssText = "position:relative;overflow:visible;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;";
 
-    let node = buildLabelNode(it);
+      if(it){
+        let node = buildLabelNode(it);
 
-    const off = document.createElement('div');
-    off.style.cssText="position:absolute;left:-10000px;top:-10000px;opacity:0;";
-    off.appendChild(node);
-    document.body.appendChild(off);
-    const rect = node.getBoundingClientRect();
-    const naturalW = Math.max(1, rect.width);
-    const naturalH = Math.max(1, rect.height);
-    document.body.removeChild(off);
+        // measure natural size once to get accurate scale inside cell
+        const off = document.createElement('div');
+        off.style.cssText="position:absolute;left:-10000px;top:-10000px;opacity:0;";
+        off.appendChild(node);
+        document.body.appendChild(off);
+        const rect = node.getBoundingClientRect();
+        const naturalW = Math.max(1, rect.width);
+        const naturalH = Math.max(1, rect.height);
+        document.body.removeChild(off);
 
-    const scale = Math.min(cellW / naturalW, cellH / naturalH);
+        const scale = Math.min(cellW / naturalW, cellH / naturalH);
 
-    const scaler = document.createElement('div');
-    scaler.style.cssText = `width:${Math.round(naturalW*scale)}px;height:${Math.round(naturalH*scale)}px;transform-origin:top left;`;
-    node.style.transformOrigin = "top left";
-    node.style.transform = `scale(${scale})`;
-    scaler.appendChild(node);
+        const scaler = document.createElement('div');
+        scaler.style.cssText = `width:${Math.round(naturalW*scale)}px;height:${Math.round(naturalH*scale)}px;transform-origin:top left;`;
+        node.style.transformOrigin = "top left";
+        node.style.transform = `scale(${scale})`;
+        scaler.appendChild(node);
 
-    const holder = document.createElement('div');
-    holder.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
-    holder.appendChild(scaler);
+        const holder = document.createElement('div');
+        holder.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
+        holder.appendChild(scaler);
 
-    // Kenar kolon kaydırmaları
-    if(colIndex===0){ holder.style.transform = `translateX(-${EDGE_SHIFT_PX}px)`; }
-    else if(colIndex===2){ holder.style.transform = `translateX(${EDGE_SHIFT_PX}px)`; }
+        // Edge column micro-shift
+        if(c===0){ holder.style.transform = `translateX(-${EDGE_SHIFT_PX}px)`; }
+        else if(c===2){ holder.style.transform = `translateX(${EDGE_SHIFT_PX}px)`; }
 
-    cell.appendChild(holder);
-    page.appendChild(cell);
+        cell.appendChild(holder);
+      }
+      // Even if empty, append the cell to keep grid structure
+      page.appendChild(cell);
+    }
   }
   return page;
 }
@@ -645,9 +683,7 @@ async function makeOldListDoc(){
   doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}  •  Toplam: ${old.reduce((a,x)=>a+x.qty,0)} etiket`, 10, 18);
 
   let y=26; old.forEach(it=>{
-    const cvs=document.createElement('canvas'); const fmt=/^\d{13}$/.test(it.barcode)?'EAN13':'CODE128';
-    JsBarcode(cvs,it.barcode,{format:fmt,height:16,displayValue:false,margin:0});
-    const png=cvs.toDataURL('image/png');
+    const png=getBarcodePng(it.barcode);
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text(it.name, 10, y); y+=4;
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(`${it.barcode}  •  FD: ${fmtDMY(it.priceDate)}  •  ${fmtTRY.format(it.price)}`, 10, y);
     doc.addImage(png,'PNG', 150, y-8, 45, 12); y+=10;
@@ -656,7 +692,7 @@ async function makeOldListDoc(){
   return doc;
 }
 
-/* ===== Sepeti Kaydet + QR ===== */
+/* ===== Sepeti Kaydet + Yükle + QR ===== */
 function downloadJSON(name,data){ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
 $('btnSaveCart').addEventListener('click', async ()=>{
   if(CART.length===0){ alert('Sepet boş.'); return; }
@@ -673,6 +709,43 @@ $('btnSaveCart').addEventListener('click', async ()=>{
   }
 });
 
+// JSON Yükleme (import)
+$('btnLoadCart').addEventListener('click', ()=> $('fileCart').click());
+$('fileCart').addEventListener('change', async (ev)=>{
+  const f = ev.target.files?.[0]; if(!f) return;
+  try{
+    const txt = await f.text();
+    const data = JSON.parse(txt);
+    if(!Array.isArray(data)) throw new Error('Geçersiz sepet dosyası');
+    // Basit normalizasyon + birleştirme
+    const merge = confirm('Yüklenen sepet mevcut sepetin ÜSTÜNE EKLENSİN mi? (İptal: Eski sepet silinir)');
+    const map = new Map();
+    const push = (it)=>{
+      const key = String(it.barcode||'').trim();
+      if(!key) return;
+      const prev = map.get(key) || {barcode:key, name:String(it.name||''), price:Number(it.price||0), isOld:!!it.isOld, qty:0};
+      prev.qty += Math.max(1, Number(it.qty||1));
+      // isOld OR mantığı
+      prev.isOld = !!(prev.isOld || it.isOld);
+      // name/price boşsa mevcut değerlerden doldur
+      if(!prev.name && it.name) prev.name = String(it.name);
+      if(!prev.price && it.price) prev.price = Number(it.price);
+      map.set(key, prev);
+    };
+    if(merge){ (CART||[]).forEach(push); }
+    (data||[]).forEach(push);
+    const next = Array.from(map.values());
+    setCart(next);
+    renderCart();
+    showToast('Sepet yüklendi');
+  }catch(e){
+    alert('Sepet yüklenemedi: ' + (e?.message||e));
+  }finally{
+    ev.target.value = '';
+  }
+});
+
+// Otomatik JSON kaydı (mevcut davranış korunur)
 window.addEventListener('beforeunload', (e)=>{
   if(CART.length>0){
     try{ downloadJSON('sepet.json', CART); }catch(_){}
