@@ -292,64 +292,54 @@ $('btnFetchSheets').addEventListener('click', async ()=>{
   const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI7se9FOblWixi1TB9jpkWsOVIxWOjMDXvMArXCh4ypjLPCJzA3pWqxNJysbMawA/pub?output=csv';
   const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
 
-  const ctrl = new AbortController();
-  const to = setTimeout(()=>ctrl.abort('İstek zaman aşımına uğradı (ağ/CORS/engelleyici).'), 12000);
-
-  try{
-    const res = await fetch(url, { cache:'no-store', mode:'cors', signal: ctrl.signal });
-    clearTimeout(to);
-
-    const typ = (res.headers.get('content-type')||'').toLowerCase();
-    const hdr = `HTTP ${res.status} / ${res.statusText} • type=${typ||'—'} • respType=${res.type}`;
-
-    if (!res.ok){
-      const txt = await res.text().catch(()=>'');
-      alert('Sheets isteği başarısız: ' + hdr + '
-Örnek içerik: ' + txt.slice(0,180));
-      return;
-    }
-
-    if (res.type === 'opaque'){
-      alert('Yanıt okunamıyor (opaque). Muhtemel neden: tarayıcı uzantısı/kurumsal güvenlik, DNS/Firewall veya CORS kısıtı.');
-      return;
-    }
-
-    let wb;
-    if (typ.includes('text/csv') || baseUrl.endsWith('output=csv')){
-      const txt = await res.text();
-      if (/<!doctype|<html|<head|<body/i.test(txt.slice(0,200))) {
-        alert('Google CSV yerine HTML sayfası gönderdi. "Web’e Yayımla (CSV)" ayarını kontrol edin.');
-        return;
-      }
-      wb = XLSX.read(txt, { type:'string' });
-    } else if (typ.includes('application/vnd.openxmlformats-officedocument') || typ.includes('application/octet-stream')){
-      const buf = await res.arrayBuffer();
-      wb = XLSX.read(new Uint8Array(buf), { type:'array' });
-    } else if (typ.includes('text/html')){
-      const html = await res.text();
-      alert('Google HTML döndürdü (CSV değil). İlk satırlar:
-' + html.slice(0,200));
-      return;
-    } else {
-      const peek = await res.text();
-      alert('Beklenmeyen içerik: ' + hdr + '
-İlk satırlar: ' + peek.slice(0,200));
-      return;
-    }
-
+  // timeout'lı fetch + 2 deneme
+  async function fetchWithTimeout(u, ms=12000){
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort('timeout'), ms);
+    try { return await fetch(u, {cache:'no-store', mode:'cors', signal: ctrl.signal}); }
+    finally { clearTimeout(tid); }
+  }
+  let res;
+  for(let i=1;i<=2;i++){
     try{
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      let rows = XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true,cellDates:true});
-      let arr  = rows.map(normalizeRow).filter(x=>x.barcode&&x.name);
-      PRODUCTS = arr;
-      badgeData.innerHTML=`<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0?PRODUCTS.length+' ürün yüklendi (Sheets)':'Hiç ürün okunamadı'}`;
-      if(PRODUCTS.length>0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
-    }catch(err){
-      alert('Sheet parse hatası: '+ (err?.message||err));
+      res = await fetchWithTimeout(url, 12000);
+      if(res && res.ok) break;
+    }catch(e){
+      if(i===2) throw e;
+      await new Promise(r=>setTimeout(r, 600*i));
     }
+  }
+  const typ = (res.headers.get('content-type')||'').toLowerCase();
+  if(!res.ok){
+    const peek = await res.text().catch(()=>'');
+    alert('Sheets isteği başarısız:\\nHTTP ' + res.status + ' ' + res.statusText + '\\n\\nİlk satırlar:\\n' + peek.slice(0,200));
+    return;
+  }
+  if(res.type === 'opaque'){
+    alert('Yanıt okunamıyor (opaque). Muhtemel: eklenti/kurumsal güvenlik/DNS/CORS engeli.');
+    return;
+  }
+  const txt = await res.text();
+  if(/<!doctype|<html|<head|<body/i.test(txt.slice(0,300))){
+    alert('CSV yerine HTML dönüyor. Lütfen "Dosya > Web’e Yayınla > Biçim: CSV" ayarını doğrulayın.\\nİlk satırlar:\\n' + txt.slice(0,200));
+    return;
+  }
+  let wb;
+  try{
+    wb = XLSX.read(txt, { type:'string' }); // CSV için doğru mod
+  }catch(e){
+    alert('CSV parse hatası: ' + (e?.message||e));
+    return;
+  }
+  try{
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    let rows = XLSX.utils.sheet_to_json(sheet, {defval:'', raw:true, cellDates:true});
+    let arr  = rows.map(normalizeRow).filter(x=>x.barcode && x.name);
+    PRODUCTS = arr;
+    badgeData.innerHTML = `<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0 ? PRODUCTS.length+' ürün yüklendi (Sheets)' : 'Hiç ürün okunamadı'}`;
+    if(PRODUCTS.length>0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
   }catch(err){
-    clearTimeout(to);
-    alert('İstek tamamlanamadı: ' + (err?.message||err));
+    alert('Google Sheets verisi okunamadı: ' + (err?.message||err));
   }
 });
 try{
