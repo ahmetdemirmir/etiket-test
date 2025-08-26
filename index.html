@@ -148,7 +148,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
 
     <div class="control" style="margin-top:8px">
-      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane" autocomplete="off" / inputmode="numeric" pattern="[0-9]*">
+      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane" autocomplete="off" />
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
@@ -426,7 +426,7 @@ window.openProduct=function(p, source='manual'){
 
   mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
-  $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,old); };
+  $('btnCustom').onclick=async()=>{ const s=await numericPrompt('Kaç adet?', ''); const q=parseInt(s,10); if(q>0) addToCart(p,q,old); };
   $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
 }
 
@@ -956,6 +956,61 @@ $('btnPrint').onclick = directPrint;
 $('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); directPrint(); };
 
 })(); // IIFE end
+</script>
+
+<script>
+function numericPrompt(title, initialValue) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.style.position='fixed'; ov.style.inset='0'; ov.style.background='rgba(0,0,0,0.35)';
+    ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center';
+    ov.style.zIndex='99999';
+
+    const dg = document.createElement('div');
+    dg.style.background='#fff'; dg.style.padding='16px'; dg.style.borderRadius='12px'; dg.style.minWidth='260px';
+    dg.style.maxWidth='90vw'; dg.style.boxShadow='0 10px 30px rgba(0,0,0,.25)';
+
+    const h = document.createElement('div');
+    h.textContent = title || 'Özel Adet';
+    h.style.fontWeight='600'; h.style.margin='0 0 8px 0';
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.inputMode = 'numeric';
+    inp.setAttribute('pattern','[0-9]*');
+    inp.placeholder = 'Sadece sayı';
+    inp.style.width='100%'; inp.style.padding='10px'; inp.style.fontSize='18px';
+    inp.style.border='1px solid #ddd'; inp.style.borderRadius='10px';
+    inp.value = '';
+
+    inp.addEventListener('input', () => { inp.value = (inp.value || '').replace(/[^0-9]/g,''); });
+
+    const row = document.createElement('div');
+    row.style.display='flex'; row.style.gap='8px'; row.style.marginTop='12px';
+
+    const ok = document.createElement('button');
+    ok.textContent='Tamam'; ok.className='btn'; ok.style.flex='1';
+
+    const cancel = document.createElement('button');
+    cancel.textContent='İptal'; cancel.className='btn btn-danger'; cancel.style.flex='1';
+
+    const closeAll = (val) => { try { document.body.removeChild(ov); } catch(e){} resolve(val); };
+
+    ok.onclick = () => closeAll(inp.value);
+    cancel.onclick = () => closeAll(null);
+    ov.onclick = (e) => { if (e.target===ov) closeAll(null); };
+
+    dg.appendChild(h); dg.appendChild(inp); row.appendChild(cancel); row.appendChild(ok); dg.appendChild(row);
+    ov.appendChild(dg); document.body.appendChild(ov);
+
+    setTimeout(() => { inp.focus(); inp.select(); }, 0);
+
+    dg.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); ok.click(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel.click(); }
+    });
+  });
+}
 </script>
 </body>
 </html>
