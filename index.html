@@ -291,22 +291,50 @@ function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode
 $('btnFetchSheets').addEventListener('click', async ()=>{
   const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI7se9FOblWixi1TB9jpkWsOVIxWOjMDXvMArXCh4ypjLPCJzA3pWqxNJysbMawA/pub?output=csv';
   const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
-  try{
-    const res = await fetch(url, { cache: 'no-store' });
-    const ct = (res.headers.get('content-type')||'').toLowerCase();
 
-    if (ct.includes('text/html')) {
-      await res.text(); // drain
-      throw new Error('Google Sheets HTML döndürdü (CSV değil). "Web’e yayımla"yı yeniden açın veya doğru CSV linkini kullanın.');
+  const ctrl = new AbortController();
+  const to = setTimeout(()=>ctrl.abort('İstek zaman aşımına uğradı (ağ/CORS/engelleyici).'), 12000);
+
+  try{
+    const res = await fetch(url, { cache:'no-store', mode:'cors', signal: ctrl.signal });
+    clearTimeout(to);
+
+    const typ = (res.headers.get('content-type')||'').toLowerCase();
+    const hdr = `HTTP ${res.status} / ${res.statusText} • type=${typ||'—'} • respType=${res.type}`;
+
+    if (!res.ok){
+      const txt = await res.text().catch(()=>'');
+      alert('Sheets isteği başarısız: ' + hdr + '
+Örnek içerik: ' + txt.slice(0,180));
+      return;
+    }
+
+    if (res.type === 'opaque'){
+      alert('Yanıt okunamıyor (opaque). Muhtemel neden: tarayıcı uzantısı/kurumsal güvenlik, DNS/Firewall veya CORS kısıtı.');
+      return;
     }
 
     let wb;
-    if (ct.includes('text/csv') || baseUrl.endsWith('output=csv')){
+    if (typ.includes('text/csv') || baseUrl.endsWith('output=csv')){
       const txt = await res.text();
-      wb = XLSX.read(txt, { type: 'string' });
-    } else {
+      if (/<!doctype|<html|<head|<body/i.test(txt.slice(0,200))) {
+        alert('Google CSV yerine HTML sayfası gönderdi. "Web’e Yayımla (CSV)" ayarını kontrol edin.');
+        return;
+      }
+      wb = XLSX.read(txt, { type:'string' });
+    } else if (typ.includes('application/vnd.openxmlformats-officedocument') || typ.includes('application/octet-stream')){
       const buf = await res.arrayBuffer();
-      wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+      wb = XLSX.read(new Uint8Array(buf), { type:'array' });
+    } else if (typ.includes('text/html')){
+      const html = await res.text();
+      alert('Google HTML döndürdü (CSV değil). İlk satırlar:
+' + html.slice(0,200));
+      return;
+    } else {
+      const peek = await res.text();
+      alert('Beklenmeyen içerik: ' + hdr + '
+İlk satırlar: ' + peek.slice(0,200));
+      return;
     }
 
     try{
@@ -317,10 +345,11 @@ $('btnFetchSheets').addEventListener('click', async ()=>{
       badgeData.innerHTML=`<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0?PRODUCTS.length+' ürün yüklendi (Sheets)':'Hiç ürün okunamadı'}`;
       if(PRODUCTS.length>0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
     }catch(err){
-      alert('Google Sheets verisi okunamadı: '+ (err?.message||err));
+      alert('Sheet parse hatası: '+ (err?.message||err));
     }
   }catch(err){
-    alert('Google Sheets’den veri alınamadı: '+ (err?.message||err));
+    clearTimeout(to);
+    alert('İstek tamamlanamadı: ' + (err?.message||err));
   }
 });
 try{
