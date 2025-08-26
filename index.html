@@ -287,11 +287,43 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 /* ===== Sheets & Excel Yükleme ===== */
-$('btnFetchSheets').addEventListener('click', ()=>{
-  const url='https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
-  fetch(url).then(r=>r.text()).then(csv=>{
-    const wb=XLSX.read(csv,{type:'binary'});
+
+$('btnFetchSheets').addEventListener('click', async ()=>{
+  const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
+  const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  try{
+    const res = await fetch(url, { cache: 'no-store' });
+    const ct = (res.headers.get('content-type')||'').toLowerCase();
+
+    if (ct.includes('text/html')) {
+      await res.text(); // drain
+      throw new Error('Google Sheets HTML döndürdü (CSV değil). "Web’e yayımla"yı yeniden açın veya doğru CSV linkini kullanın.');
+    }
+
+    let wb;
+    if (ct.includes('text/csv') || baseUrl.endsWith('output=csv')){
+      const txt = await res.text();
+      wb = XLSX.read(txt, { type: 'string' });
+    } else {
+      const buf = await res.arrayBuffer();
+      wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    }
+
     try{
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true,cellDates:true});
+      let arr  = rows.map(normalizeRow).filter(x=>x.barcode&&x.name);
+      PRODUCTS = arr;
+      badgeData.innerHTML=`<i class="fa-solid fa-database"></i> ${PRODUCTS.length>0?PRODUCTS.length+' ürün yüklendi (Sheets)':'Hiç ürün okunamadı'}`;
+      if(PRODUCTS.length>0) showToast('Veri yüklendi'); else alert('Uygun satır bulunamadı.');
+    }catch(err){
+      alert('Google Sheets verisi okunamadı: '+ (err?.message||err));
+    }
+  }catch(err){
+    alert('Google Sheets’den veri alınamadı: '+ (err?.message||err));
+  }
+});
+try{
       const sheet=wb.Sheets[wb.SheetNames[0]];
       let rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true,cellDates:true});
       let arr=rows.map(normalizeRow).filter(x=>x.barcode&&x.name);
