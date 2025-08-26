@@ -148,7 +148,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
 
     <div class="control" style="margin-top:8px">
-      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane" autocomplete="off" />
+      <input id="inpBarcode" class="input" type="text" placeholder="Barkod SON 6 hane" autocomplete="off" / inputmode="numeric" pattern="[0-9]*">
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
