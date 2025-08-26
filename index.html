@@ -289,7 +289,7 @@ function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode
 /* ===== Sheets & Excel Yükleme ===== */
 
 $('btnFetchSheets').addEventListener('click', async ()=>{
-  const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
+  const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI7se9FOblWixi1TB9jpkWsOVIxWOjMDXvMArXCh4ypjLPCJzA3pWqxNJysbMawA/pub?output=csv';
   const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
   try{
     const res = await fetch(url, { cache: 'no-store' });
