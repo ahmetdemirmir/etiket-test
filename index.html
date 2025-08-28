@@ -140,6 +140,12 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 </style>
 </head>
 <body>
+
+<!-- 🔊 Preloaded Audio Files -->
+<audio id="sndMatch" src="sounds/match.mp3" preload="auto"></audio>
+<audio id="sndCart"  src="sounds/cart.mp3"  preload="auto"></audio>
+<audio id="sndFail"  src="sounds/fail.mp3"  preload="auto"></audio>
+
 <header>
   <img src="logo.png" alt="Logo" />
   <h1>Fiyat Gör Etiket Bas</h1>
@@ -1091,81 +1097,55 @@ $('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); direct
 
 
 <script>
-// === Non-breaking Audio Hooks for MATCH vs CART ADD ===
-(function(){
+// === Audio + Haptic Signals using external MP3s ===
+function playSound(id){
   try{
-    // Helper: generic tone
-    window.tone = function(freq=1000, dur=0.22, gain=0.22){
-      try{
-        ensureAudio();
-        if (!window.audioReady) return;
-        const a = window.A || new (window.AudioContext||window.webkitAudioContext)();
-        window.A = a;
-        const o = a.createOscillator();
-        const g = a.createGain();
-        o.type = 'sine';
-        o.frequency.setValueAtTime(freq, a.currentTime);
-        g.gain.setValueAtTime(gain, a.currentTime);
-        o.connect(g).connect(a.destination);
-        o.start();
-        o.stop(a.currentTime + dur);
-      }catch(e){}
-    };
-
-    // Signal map
-    window.audioSignals = {
-      onMatch(){    tone(1400, 0.22, 0.24); if (window.strongHaptic) strongHaptic(true); },
-      onCartAdd(){  tone(900,  0.28, 0.24); if (window.strongHaptic) strongHaptic(true); },
-      onFail(){     tone(420,  0.25, 0.24); if (window.strongHaptic) strongHaptic(false); }
-    };
-
-    // 1) Listen custom events if app already dispatches
-    ['product:matched','scan:match','urun:eslesti'].forEach(evt=>{
-      window.addEventListener(evt, ()=>audioSignals.onMatch(), true);
-    });
-    ['cart:added','sepet:eklendi','urun:sepeteEklendi'].forEach(evt=>{
-      window.addEventListener(evt, ()=>audioSignals.onCartAdd(), true);
-    });
-    ['product:notfound','scan:fail','urun:bulunamadi'].forEach(evt=>{
-      window.addEventListener(evt, ()=>audioSignals.onFail(), true);
-    });
-
-    // 2) Wrap common function names if exist (non-breaking monkey-patch)
-    function wrapIf(fnName, beforeCb){
-      try{
-        const fn = window[fnName];
-        if (typeof fn === 'function' && !fn.__wrappedAudio){
-          window[fnName] = function(){
-            try{ beforeCb && beforeCb.apply(this, arguments); }catch(_){}
-            return fn.apply(this, arguments);
-          };
-          window[fnName].__wrappedAudio = true;
-        }
-      }catch(e){}
-    }
-
-    // Likely candidates in the project:
-    ['onProductMatched','handleMatch','matchFound','urunEslesti','scanSuccess'].forEach(n=>wrapIf(n, audioSignals.onMatch));
-    ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart'].forEach(n=>wrapIf(n, audioSignals.onCartAdd));
-    ['onScanFail','handleScanFail','scanFail','notFound','urunBulunamadi'].forEach(n=>wrapIf(n, audioSignals.onFail));
-
-    // 3) Button hooks as fallback (capture phase, minimal)
-    const selectors = [
-      '#btnSepeteEkle', '#btnEkle', '[data-action="add-to-cart"]',
-      '.btn-sepete-ekle', 'button[name="sepeteEkle"]'
-    ];
-    document.addEventListener('click', function(e){
-      try{
-        const el = e.target.closest(selectors.join(','));
-        if (el) audioSignals.onCartAdd();
-      }catch(_){}
-    }, true);
-
-    // 4) Expose helper to app to emit explicitly if desired
-    window.emitAppEvent = function(name, detail){ try{
-      window.dispatchEvent(new CustomEvent(String(name), { detail }));
-    }catch(e){} };
+    const el = document.getElementById(id);
+    if(el){ el.currentTime = 0; el.play().catch(()=>{}); }
   }catch(e){}
+}
+
+function onMatch(){
+  playSound('sndMatch');
+  if (window.strongHaptic) strongHaptic(true);
+}
+
+function onCartAdd(){
+  playSound('sndCart');
+  if (window.strongHaptic) strongHaptic(true);
+}
+
+function onFail(){
+  playSound('sndFail');
+  if (window.strongHaptic) strongHaptic(false);
+}
+
+// Bind to common function names / events
+(function(){
+  function wrapIf(fnName, beforeCb){
+    try{
+      const fn = window[fnName];
+      if (typeof fn === 'function' && !fn.__wrappedAudio){
+        window[fnName] = function(){
+          try{ beforeCb && beforeCb.apply(this, arguments); }catch(_){}
+          return fn.apply(this, arguments);
+        };
+        window[fnName].__wrappedAudio = true;
+      }
+    }catch(e){}
+  }
+
+  ['onProductMatched','handleMatch','matchFound','urunEslesti','scanSuccess']
+    .forEach(n=>wrapIf(n, onMatch));
+  ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart']
+    .forEach(n=>wrapIf(n, onCartAdd));
+  ['onScanFail','handleScanFail','scanFail','notFound','urunBulunamadi']
+    .forEach(n=>wrapIf(n, onFail));
+
+  // Event listeners fallback
+  window.addEventListener('product:matched', ()=>onMatch(), true);
+  window.addEventListener('cart:added', ()=>onCartAdd(), true);
+  window.addEventListener('product:notfound', ()=>onFail(), true);
 })();
 </script>
 
