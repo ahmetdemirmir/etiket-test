@@ -122,6 +122,13 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
 /* Modern confirm modal */
 .modal .confirmRow{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+
+
+/* Custom sizing for qty buttons */
+#btnQty1{padding:14px 20px;font-size:18px;font-weight:800}
+.btn.qty-small{padding:9px 12px;font-size:14px;font-weight:700}
+.btn.warn{background:var(--warn);color:#fff}
+
 </style>
 <style>
 /* 🔊 Sesi Etkinleştir toast */
@@ -212,13 +219,14 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
   </div>
 
-  <div class="actions">
-    <button class="btn" data-qty="1">1 Adet</button>
-    <button class="btn" id="btnCustom"><i class="fa-solid fa-plus"></i> Özel</button>
-    <button class="btn danger" id="btnCancel">İptal</button>
-  </div>
-</div></div>
-
+  <div class="actions" style="flex-wrap:wrap;gap:8px;justify-content:center">
+  <button class="btn" style="font-size:18px;padding:16px 22px;background:#2563eb;color:#fff;" data-qty="1">1 Adet</button>
+  <button class="btn" style="background:#10b981;color:#fff;" data-qty="2">2 Adet</button>
+  <button class="btn" style="background:#f59e0b;color:#fff;" data-qty="3">3 Adet</button>
+  <button class="btn" style="background:#8b5cf6;color:#fff;" data-qty="5">5 Adet</button>
+  <button class="btn" style="background:#ef4444;color:#fff;" data-qty="10">10 Adet</button>
+  <button class="btn danger" id="btnCancel">İptal</button>
+</div>
 <!-- Sepet modal -->
 <div id="mdlCart" class="modal"><div class="box">
   <h3>Sepet</h3>
@@ -1528,34 +1536,219 @@ window.askAdet = function(callback){
 })();
 </script>
 
+</body>
+</html>
 
 <script>
-// Robust delegated handler for Özel Adet button
 (function(){
-  try{
-    document.addEventListener('click', function(ev){
-      const el = ev.target && (ev.target.id === 'btnCustom' ? ev.target : (ev.target.closest && ev.target.closest('#btnCustom')));
-      if (!el) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      ev.stopImmediatePropagation();
-      if (typeof askAdet === 'function'){
-        askAdet(function(val){
-          const q = parseInt((val||'').trim(), 10);
-          const p = window.__lastProduct || null;
-          const old = !!window.__lastIsOld;
-          if (q>0 && p && typeof window.addToCart === 'function'){
-            try{ window.addToCart(p, q, old); }catch(_){}
-            try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
-            try{ const mdl = document.getElementById('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
-            try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
-          }
-        });
-      }
+  function installInlineAdder(btn){
+    if (!btn || btn.__patchedInline) return;
+    btn.__patchedInline = true;
+    btn.style.display = 'none';
+
+    var wrap = document.createElement('span');
+    wrap.style.display = 'inline-flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '8px';
+    wrap.style.marginLeft = '6px';
+
+    var inp = document.createElement('input');
+    inp.id = 'qtyCustomInline';
+    inp.type = 'tel';
+    inp.setAttribute('inputmode','numeric');
+    inp.setAttribute('pattern','[0-9]*');
+    inp.placeholder = 'Adet';
+    inp.style.width = '80px';
+    inp.style.textAlign = 'center';
+    inp.style.padding = '8px 10px';
+    inp.style.fontSize = '16px';
+    inp.style.border = '1px solid #ccc';
+    inp.style.borderRadius = '10px';
+
+    var plus = document.createElement('button');
+    plus.className = 'btn';
+    plus.id = 'btnInlineAdd';
+    plus.textContent = '+';
+
+    var confirm = document.createElement('button');
+    confirm.className = 'btn';
+    confirm.id = 'btnInlineConfirm';
+    confirm.textContent = 'Onayla';
+    confirm.style.background = '#28a745';
+    confirm.style.color = '#fff';
+    confirm.style.fontWeight = '600';
+
+    wrap.appendChild(inp);
+    wrap.appendChild(plus);
+    wrap.appendChild(confirm);
+    btn.parentNode.insertBefore(wrap, btn.nextSibling);
+
+    function onlyDigits(s){ return (s||'').replace(/[^\d]/g,''); }
+    function parseQty(){ return parseInt(onlyDigits(inp && inp.value), 10) || 0; }
+    function safeAdd(q){
+      try{
+        var p = window.__lastProduct || null;
+        var old = !!window.__lastIsOld;
+        if (q>0 && p && typeof window.addToCart==='function'){
+          window.addToCart(p, q, old);
+          try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
+          try{ var mdl=document.getElementById('mdlProduct'); if(mdl) mdl.classList.remove('shown'); }catch(_){}
+          try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+        }
+      }catch(_){}
+    }
+
+    inp.addEventListener('input', function(){ this.value = onlyDigits(this.value); }, true);
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ e.preventDefault(); safeAdd(parseQty()); }
     }, true);
-  }catch(_){}
+
+    plus.addEventListener('click', function(e){ e.preventDefault(); safeAdd(parseQty()); }, true);
+    confirm.addEventListener('click', function(e){ e.preventDefault(); safeAdd(parseQty()); }, true);
+  }
+
+  function tryPatch(){ var b=document.getElementById('btnCustom'); if (b) installInlineAdder(b); }
+  document.addEventListener('DOMContentLoaded', tryPatch);
+  var obs=new MutationObserver(function(){ tryPatch(); });
+  obs.observe(document.documentElement||document.body,{childList:true,subtree:true});
 })();
 </script>
 
-</body>
-</html>
+<script>
+// Runtime replacement for "Özel" button -> "+ [adet kutusu]"
+(function(){
+  function installInlineAdder(btn){
+    if (!btn || btn.__patchedInline) return;
+    btn.__patchedInline = true;
+    // Hide original "Özel" button
+    btn.style.display = 'none';
+
+    // Build inline controls
+    var wrap = document.createElement('span');
+    wrap.style.display = 'inline-flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '8px';
+    wrap.style.marginLeft = '6px';
+
+    var plus = document.createElement('button');
+    plus.className = 'btn';
+    plus.id = 'btnInlineAdd';
+    plus.textContent = '+';
+    plus.style.padding = '8px 12px';
+    plus.style.fontWeight = '700';
+
+    var inp = document.createElement('input');
+    inp.id = 'qtyCustomInline';
+    inp.type = 'tel';
+    inp.setAttribute('inputmode', 'numeric');
+    inp.setAttribute('pattern', '[0-9]*');
+    inp.placeholder = 'Adet';
+    inp.style.width = '100px';
+    inp.style.textAlign = 'center';
+    inp.style.padding = '8px 10px';
+    inp.style.fontSize = '16px';
+    inp.style.border = '1px solid #ccc';
+    inp.style.borderRadius = '10px';
+
+    wrap.appendChild(plus);
+    wrap.appendChild(inp);
+    // Insert after the old button
+    btn.parentNode.insertBefore(wrap, btn.nextSibling);
+
+    function onlyDigits(s){ return (s||'').replace(/[^\d]/g,''); }
+    function parseQty(){ return parseInt(onlyDigits(inp && inp.value), 10) || 0; }
+    function safeAdd(q){
+      try{
+        var p = window.__lastProduct || null;
+        var old = !!window.__lastIsOld;
+        if (q>0 && p && typeof window.addToCart==='function'){
+          window.addToCart(p, q, old);
+          try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
+          try{ var mdl=document.getElementById('mdlProduct'); if(mdl) mdl.classList.remove('shown'); }catch(_){}
+          try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+        }
+      }catch(_){}
+    }
+
+    inp.addEventListener('input', function(){ this.value = onlyDigits(this.value); }, true);
+    inp.addEventListener('focus', function(){ try{ this.select(); }catch(_){} }, true);
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){
+        e.preventDefault();
+        safeAdd(parseQty());
+      }
+    }, true);
+
+    plus.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      safeAdd(parseQty());
+    }, true);
+  }
+
+  // Try immediately
+  function tryPatch(){ var b=document.getElementById('btnCustom'); if (b) installInlineAdder(b); }
+  document.addEventListener('DOMContentLoaded', tryPatch);
+
+  // Observe for modal/content updates (e.g., popup açıldığında buton ekleniyorsa)
+  var obs = new MutationObserver(function(){
+    tryPatch();
+  });
+  obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+})();
+</script>
+
+<script>
+// STRONG OVERRIDE: wire inline onclick on the injected buttons so nothing can block them.
+(function(){
+  function install(){
+    var wrapBtn = document.getElementById('btnCustom');
+    if (!wrapBtn) return;
+
+    // If our inline controls already exist, hard-wire their onclicks
+    var plus = document.getElementById('btnInlineAdd');
+    var confirm = document.getElementById('btnInlineConfirm');
+    var input = document.getElementById('qtyCustomInline');
+
+    function onlyDigits(s){ return (s||'').replace(/[^\d]/g,''); }
+    function parseQty(){ return parseInt(onlyDigits(input && input.value), 10) || 0; }
+    function safeAdd(q){
+      try{
+        var p = window.__lastProduct || null;
+        var old = !!window.__lastIsOld;
+        if (q>0 && p && typeof window.addToCart==='function'){
+          window.addToCart(p, q, old);
+          try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
+          try{ var mdl=document.getElementById('mdlProduct'); if(mdl) mdl.classList.remove('shown'); }catch(_){}
+          try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+        }
+      }catch(_){}
+    }
+
+    if (input){
+      input.style.pointerEvents = 'auto';
+      input.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); safeAdd(parseQty()); return false; } };
+    }
+
+    if (plus){
+      plus.setAttribute('type','button');
+      plus.style.pointerEvents = 'auto';
+      plus.onclick = function(e){ if(e){e.preventDefault(); e.stopPropagation();} safeAdd(parseQty()); return false; };
+    }
+
+    if (confirm){
+      confirm.setAttribute('type','button');
+      confirm.style.pointerEvents = 'auto';
+      // Force highest z-index in the row to avoid overlay swallowing clicks
+      confirm.style.zIndex = 99999;
+      confirm.onclick = function(e){ if(e){e.preventDefault(); e.stopPropagation();} safeAdd(parseQty()); return false; };
+    }
+  }
+
+  // Try now and whenever DOM changes
+  document.addEventListener('DOMContentLoaded', install);
+  var obs = new MutationObserver(install);
+  obs.observe(document.documentElement||document.body, {childList:true, subtree:true});
+})();
+</script>
+
+<!-- inline adet controls removed -->
