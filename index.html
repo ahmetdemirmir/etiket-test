@@ -1528,5 +1528,34 @@ window.askAdet = function(callback){
 })();
 </script>
 
+
+<script>
+// Robust delegated handler for Özel Adet button
+(function(){
+  try{
+    document.addEventListener('click', function(ev){
+      const el = ev.target && (ev.target.id === 'btnCustom' ? ev.target : (ev.target.closest && ev.target.closest('#btnCustom')));
+      if (!el) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+      if (typeof askAdet === 'function'){
+        askAdet(function(val){
+          const q = parseInt((val||'').trim(), 10);
+          const p = window.__lastProduct || null;
+          const old = !!window.__lastIsOld;
+          if (q>0 && p && typeof window.addToCart === 'function'){
+            try{ window.addToCart(p, q, old); }catch(_){}
+            try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
+            try{ const mdl = document.getElementById('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
+            try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+          }
+        });
+      }
+    }, true);
+  }catch(_){}
+})();
+</script>
+
 </body>
 </html>
