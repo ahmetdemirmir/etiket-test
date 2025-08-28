@@ -1460,5 +1460,73 @@ window.askAdet = function(callback){
 })();
 </script>
 
+
+<script>
+// Robust wiring for "Eski Fiyat Uyarısı" modal (no $ dependency)
+(function(){
+  try{
+    const $id = (x)=>document.getElementById(x);
+    const warn = $id('mdlOldWarn');
+    if (!warn) return;
+
+    let btnCancel = $id('btnOldCancel');
+    let btnGo = $id('btnOldContinue');
+
+    // Ensure buttons exist
+    if (!btnCancel || !btnGo) return;
+
+    function closeWarn(){
+      warn.classList.remove('shown');
+      warn.style.display = 'none';
+      try{
+        if (typeof IS_PRINTING !== 'undefined') IS_PRINTING = false;
+        const btn = $id('btnCartPrint') || $id('btnPrint');
+        if (btn) btn.disabled = false;
+      }catch(_){}
+    }
+
+    // Remove existing listeners by replacing with clones (avoids duplicate handlers)
+    function resetNode(el){
+      if (!el || !el.parentNode) return el;
+      const c = el.cloneNode(true);
+      el.parentNode.replaceChild(c, el);
+      return c;
+    }
+    btnCancel = resetNode(btnCancel);
+    btnGo = resetNode(btnGo);
+
+    btnCancel.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      closeWarn();
+    }, true);
+
+    btnGo.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      // Kick off PDF flow reliably
+      const oldSave = $id('btnPdfOldSave');
+      const oldMdl = $id('mdlPdfOld');
+      if (oldMdl) oldMdl.classList.add('shown');
+      if (oldSave) {
+        oldSave.click();
+      } else {
+        const save = $id('btnPdfSave');
+        if (save) save.click();
+      }
+      closeWarn();
+    }, true);
+
+    // Overlay click closes
+    warn.addEventListener('click', function(e){
+      if (e.target === warn) closeWarn();
+    }, true);
+
+    // ESC closes
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && warn.classList.contains('shown')) closeWarn();
+    });
+  }catch(_){}
+})();
+</script>
+
 </body>
 </html>
