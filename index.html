@@ -1207,10 +1207,41 @@ window.askAdet = function(callback){
   const btnCancel = document.getElementById('adetCancel');
   modal.style.display='flex';
   input.value='';
-  setTimeout(()=>{ input.focus(); }, 100);
+  setTimeout(()=>{ input.focus(); }, 50);
 
-  function close(){ modal.style.display='none'; btnOk.onclick=null; btnCancel.onclick=null; }
-  btnOk.onclick=function(){ close(); callback(input.value||""); };
+  function close(){
+    modal.style.display='none';
+    btnOk.onclick=null; btnCancel.onclick=null;
+  }
+
+  btnOk.onclick=function(){
+    const val = (input.value||"").trim();
+    close();
+    // 1) Eğer ürün popup'ından geldiysek: otomatik sepete ekle + sesi çal + kamerayı aç
+    const qty = parseInt(val||'0', 10);
+    const p = window.__lastProduct || null;
+    const old = !!window.__lastIsOld;
+    if (qty>0 && p && typeof window.addToCart==='function'){
+      try{
+        window.addToCart(p, qty, old);
+        if (typeof playSound==='function') playSound('sndCart');
+      }catch(_){}
+      // Ürün popup'ını kapat
+      try{ const mdl = document.getElementById('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
+      // Kamerayı tekrar aç
+      try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+    }
+    // 2) İsteğe bağlı: eski callback'e de sonucu geç
+    if (typeof callback === 'function') { callback(val); }
+  };
+
+  btnCancel.onclick=function(){
+    close();
+    // Kamerayı tekrar aç (iptalde de vakit kaybetmeyelim)
+    try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+    if (typeof callback === 'function') { callback(null); }
+  };
+};
   btnCancel.onclick=function(){ close(); callback(null); };
 };
 </script>
@@ -1244,16 +1275,48 @@ window.beep=function(ok){
 };
 
 // Replace prompt with modal
-window.askAdet=function(callback){
-  const modal=document.getElementById('adetModal');
-  const input=document.getElementById('adetInput');
-  const btnOk=document.getElementById('adetOk');
-  const btnCancel=document.getElementById('adetCancel');
+window.askAdet = function(callback){
+  const modal = document.getElementById('adetModal');
+  const input = document.getElementById('adetInput');
+  const btnOk = document.getElementById('adetOk');
+  const btnCancel = document.getElementById('adetCancel');
   modal.style.display='flex';
   input.value='';
-  setTimeout(()=>{input.focus();},100);
-  function close(){modal.style.display='none';btnOk.onclick=null;btnCancel.onclick=null;}
-  btnOk.onclick=function(){close();callback(input.value||"");};
+  setTimeout(()=>{ input.focus(); }, 50);
+
+  function close(){
+    modal.style.display='none';
+    btnOk.onclick=null; btnCancel.onclick=null;
+  }
+
+  btnOk.onclick=function(){
+    const val = (input.value||"").trim();
+    close();
+    // 1) Eğer ürün popup'ından geldiysek: otomatik sepete ekle + sesi çal + kamerayı aç
+    const qty = parseInt(val||'0', 10);
+    const p = window.__lastProduct || null;
+    const old = !!window.__lastIsOld;
+    if (qty>0 && p && typeof window.addToCart==='function'){
+      try{
+        window.addToCart(p, qty, old);
+        if (typeof playSound==='function') playSound('sndCart');
+      }catch(_){}
+      // Ürün popup'ını kapat
+      try{ const mdl = document.getElementById('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
+      // Kamerayı tekrar aç
+      try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+    }
+    // 2) İsteğe bağlı: eski callback'e de sonucu geç
+    if (typeof callback === 'function') { callback(val); }
+  };
+
+  btnCancel.onclick=function(){
+    close();
+    // Kamerayı tekrar aç (iptalde de vakit kaybetmeyelim)
+    try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+    if (typeof callback === 'function') { callback(null); }
+  };
+};
   btnCancel.onclick=function(){close();callback(null);};
 };
 </script>
