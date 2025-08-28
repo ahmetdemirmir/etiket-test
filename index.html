@@ -1229,7 +1229,6 @@ window.askAdet = function(callback){
 </div>
 
 <script>
-// === New beep() using MP3 ===
 function playSound(id){
   try{
     const el=document.getElementById(id);
@@ -1237,28 +1236,14 @@ function playSound(id){
   }catch(e){}
 }
 
-window.beep=function(ok=true){
+// Override beep()
+window.beep=function(ok){
   if(ok===true){ playSound('sndMatch'); if(window.strongHaptic) strongHaptic(true); }
   else if(ok===false){ playSound('sndFail'); if(window.strongHaptic) strongHaptic(false); }
   else { playSound('sndCart'); if(window.strongHaptic) strongHaptic(true); }
 };
 
-// Override sepete ekle functions to force cart sound
-(function(){
-  function wrapIf(fnName,cb){
-    try{
-      const fn=window[fnName];
-      if(typeof fn==='function' && !fn.__wrappedCartAudio){
-        window[fnName]=function(){ try{cb&&cb();}catch(_){}
-          return fn.apply(this,arguments); };
-        window[fnName].__wrappedCartAudio=true;
-      }
-    }catch(e){}
-  }
-  ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart'].forEach(n=>wrapIf(n,()=>playSound('sndCart')));
-})();
-
-// === Replace askAdet with modal ===
+// Replace prompt with modal
 window.askAdet=function(callback){
   const modal=document.getElementById('adetModal');
   const input=document.getElementById('adetInput');
