@@ -123,6 +123,21 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 /* Modern confirm modal */
 .modal .confirmRow{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 </style>
+<style>
+/* 🔊 Sesi Etkinleştir toast */
+#soundUnlockToast{
+  position:fixed; z-index:2147483647; right:16px; bottom:16px;
+  background:rgba(20,20,20,.92); color:#fff; padding:14px 16px;
+  border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.35);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; font-size:14px;
+  display:flex; align-items:center; gap:10px;
+}
+#soundUnlockToast button{
+  appearance:none; border:0; border-radius:10px; padding:8px 12px;
+  background:#00c853; color:#fff; font-weight:600; cursor:pointer;
+}
+#soundUnlockToast.hidden{ display:none; }
+</style>
 </head>
 <body>
 <header>
@@ -1020,6 +1035,57 @@ $('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); direct
       }catch(e){ /* noop */ }
     };
   }catch(e){ /* totally non-breaking */ }
+})();
+</script>
+
+
+<!-- 🔊 One-tap unlock UI -->
+<div id="soundUnlockToast" class="hidden">
+  <span>🔊 Sesleri etkinleştir</span>
+  <button id="btnUnlockAudio">Etkinleştir</button>
+</div>
+<script>
+(function(){
+  try{
+    // Show toast until unlocked once per device
+    function showToast(){ document.getElementById('soundUnlockToast')?.classList.remove('hidden'); }
+    function hideToast(){ document.getElementById('soundUnlockToast')?.classList.add('hidden'); }
+
+    const LS_KEY = 'dk_audio_unlocked_v1';
+    const wasUnlocked = localStorage.getItem(LS_KEY) === '1';
+
+    function unlockAndTest(){
+      try{
+        ensureAudio();
+        window.audioReady = true;
+        localStorage.setItem(LS_KEY,'1');
+        hideToast();
+        // test pings: success+error to confirm
+        if (typeof window.beep==='function'){ window.beep(true); setTimeout(()=>window.beep(false), 220); }
+        if (typeof window.strongHaptic==='function'){ window.strongHaptic(true); setTimeout(()=>window.strongHaptic(false), 220); }
+      }catch(e){}
+    }
+
+    // If not unlocked yet, present toast after load
+    window.addEventListener('load', function(){
+      if (!wasUnlocked){
+        showToast();
+      }
+    });
+
+    document.addEventListener('click', function(e){
+      if (e.target && e.target.id === 'btnUnlockAudio'){
+        unlockAndTest();
+      }
+    }, true);
+
+    // Also auto-unlock on first pointerdown if user ignores the button
+    window.addEventListener('pointerdown', function(){
+      if (!localStorage.getItem(LS_KEY)){
+        try{ ensureAudio(); window.audioReady = true; localStorage.setItem(LS_KEY,'1'); hideToast(); }catch(e){}
+      }
+    }, { once:true, passive:true });
+  }catch(e){}
 })();
 </script>
 
