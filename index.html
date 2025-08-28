@@ -1384,5 +1384,81 @@ window.askAdet = function(callback){
 })();
 </script>
 
+
+<script>
+// === Fix wiring ===
+(function(){
+  // 1) Old Price warning proceed id is btnOldContinue (not btnOldProceed)
+  try{
+    const warn = $('mdlOldWarn');
+    const btnCancel = $('btnOldCancel');
+    const btnGo = $('btnOldContinue');
+    if (btnCancel && warn){
+      btnCancel.onclick = function(){
+        try{
+          warn.classList.remove('shown');
+          if (typeof IS_PRINTING !== 'undefined') IS_PRINTING = false;
+          const btn = $('btnCartPrint'); if (btn) btn.disabled = false;
+        }catch(_){}
+      };
+    }
+    if (btnGo && warn){
+      btnGo.onclick = function(){
+        try{
+          warn.classList.remove('shown');
+          const btnOldSave = $('btnPdfOldSave');
+          if (btnOldSave){
+            const mdlOld = $('mdlPdfOld');
+            if (mdlOld) mdlOld.classList.add('shown');
+            btnOldSave.click();
+          } else {
+            const btnSave = $('btnPdfSave');
+            if (btnSave) btnSave.click();
+          }
+        }catch(_){}
+      };
+    }
+  }catch(_){}
+
+  // 2) Ensure Özel button opens numeric modal and proceeds
+  try{
+    const btnCustom = $('btnCustom');
+    if (btnCustom){
+      btnCustom.onclick = function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (typeof askAdet === 'function'){
+          askAdet(function(val){
+            const q = parseInt((val||'').trim(),10);
+            const p = window.__lastProduct || null;
+            const old = !!window.__lastIsOld;
+            if (q>0 && p && typeof addToCart==='function'){
+              addToCart(p, q, old);
+              if (typeof playSound==='function') playSound('sndCart');
+              try{ const mdl = $('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
+              try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+            }
+          });
+        }
+      };
+    }
+  }catch(_){}
+
+  // 3) Numeric modal: submit on Enter/Done
+  try{
+    const input = document.getElementById('adetInput');
+    const ok = document.getElementById('adetOk');
+    if (input && ok){
+      input.addEventListener('keydown', function(e){
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          ok.click();
+        }
+      });
+    }
+  }catch(_){}
+})();
+</script>
+
 </body>
 </html>
