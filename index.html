@@ -451,7 +451,7 @@ window.openProduct=function(p, source='manual'){
   const old=isOld(p); $('mOld').style.display=old?'block':'none';
   buildPreview(p);
 
-  mdl.classList.add('shown');
+  try{ window.__lastProduct=p; window.__lastIsOld=old; if (typeof playSound==="function") playSound("sndCart"); }catch(e){} mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
   $('btnCustom').onclick=()=>{ const q=parseInt(askAdet); if(q>0) addToCart(p,q,old); };
   $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
@@ -1256,6 +1256,69 @@ window.askAdet=function(callback){
   btnOk.onclick=function(){close();callback(input.value||"");};
   btnCancel.onclick=function(){close();callback(null);};
 };
+</script>
+
+
+<!-- ❌ Not Found Modal -->
+<div id="mdlNotFound" class="modal" style="display:none;align-items:center;justify-content:center;">
+  <div class="box" style="text-align:center">
+    <h3>Ürün bulunamadı</h3>
+    <p>Okuttuğunuz ürün sistemde yok.</p>
+    <div class="actions" style="justify-content:center">
+      <button id="notFoundOk" class="btn">Tamam</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Show/hide not found modal
+  function showNotFound(){
+    try{
+      const m = document.getElementById('mdlNotFound');
+      if(!m) return;
+      m.style.display='flex';
+      document.getElementById('notFoundOk').onclick = function(){
+        m.style.display='none';
+        if (typeof refocusAfterAction === 'function') refocusAfterAction(true);
+      };
+    }catch(_){}
+  }
+
+  // Wrap findProduct to play fail sound + show modal when not found
+  try{
+    if (typeof window.findProduct === 'function' && !window.findProduct.__wrappedNF){
+      const __origFind = window.findProduct;
+      window.findProduct = function(code){
+        const res = __origFind.apply(this, arguments);
+        if (!res) {
+          if (typeof playSound === 'function') playSound('sndFail');
+          showNotFound();
+        }
+        return res;
+      };
+      window.findProduct.__wrappedNF = true;
+    }
+  }catch(_){}
+
+  // Ensure btnCustom uses askAdet modal
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('#btnCustom');
+    if(btn){
+      e.preventDefault(); e.stopImmediatePropagation();
+      const p = window.__lastProduct || null;
+      const old = (document.getElementById('mOld')?.style.display === 'block');
+      if (typeof askAdet === 'function'){
+        askAdet(function(val){
+          const q = parseInt(val||'1', 10);
+          if (q>0 && typeof window.addToCart === 'function' && p){
+            window.addToCart(p, q, !!old);
+          }
+        });
+      }
+    }
+  }, true);
+})();
 </script>
 
 </body>
