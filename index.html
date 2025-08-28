@@ -957,5 +957,71 @@ $('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); direct
 
 })(); // IIFE end
 </script>
+
+<!-- Audio Unlock + Strong Beep/Haptic Helpers (non-breaking) -->
+<script>
+(function(){
+  try{
+    // 1) Ensure/resume AudioContext on first user gesture
+    if (!window.__audioInit) {
+      window.__audioInit = true;
+      window.A = window.A || new (window.AudioContext || window.webkitAudioContext)();
+      window.audioReady = false;
+
+      function ensureAudio(){
+        try{
+          if (!window.A) window.A = new (window.AudioContext || window.webkitAudioContext)();
+          if (window.A && window.A.state === 'suspended') window.A.resume();
+        }catch(e){}
+      }
+      window.ensureAudio = ensureAudio;
+
+      window.addEventListener('pointerdown', function onceUnlock(){
+        ensureAudio();
+        window.audioReady = true;
+      }, { once:true, passive:true });
+
+      document.addEventListener('visibilitychange', function(){
+        if (document.visibilityState === 'visible' && window.A && window.A.state === 'suspended'){
+          window.A.resume();
+        }
+      });
+    }
+
+    // 2) Strong beep (overrides existing if any, but keeps signature)
+    window.beep = function(ok=true){
+      try{
+        ensureAudio();
+        if (!window.audioReady) return; // require first user gesture
+        const a = window.A;
+        const o = a.createOscillator();
+        const g = a.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(ok ? 1200 : 420, a.currentTime);
+        // Higher gain but safe; clamp if too high
+        const gain = 0.25;
+        g.gain.setValueAtTime(gain, a.currentTime);
+        o.connect(g).connect(a.destination);
+        o.start();
+        o.stop(a.currentTime + 0.25);
+      }catch(e){ /* noop */ }
+    };
+
+    // 3) Haptic helper with iOS-safe fallback
+    window.strongHaptic = function(ok=true){
+      try{
+        const pattern = ok ? [180] : [220,80,220];
+        if (navigator.vibrate) {
+          navigator.vibrate(pattern);
+        } else {
+          // iOS: no vibrate; reinforce with a second beep only on failure
+          if (!ok) window.beep(false);
+        }
+      }catch(e){ /* noop */ }
+    };
+  }catch(e){ /* totally non-breaking */ }
+})();
+</script>
+
 </body>
 </html>
