@@ -1602,25 +1602,34 @@ window.askAdet = function(callback){
     }catch(_){}
   }
   function stopCamera(){
-    try{ mediaStream && mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }catch(_){}
+    try{ mediaStream && mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  // Export to global for external triggers
+  window.openPriceCheck = openPriceCheck;
+  window.closePriceCheck = closePriceCheck;
+catch(_){}
   }
 
-  function searchProductsByCode(code){
-    try{
-      if(!Array.isArray(PRODUCTS)) return [];
-      const t=(code||'').replace(/\D/g,'');
-      if(!t) return [];
-      // exact or last6
-      const last6 = t.slice(-6);
-      const matches = PRODUCTS.filter(p=>{
-        const bc = (p.barcode||'').toString();
-        return bc===t || bc.endsWith(last6);
-      });
-      return matches;
-    }catch(_){ return []; }
-  }
-
-  function openPriceInfo(p){
+  
+function searchProductsByCode(code){
+  try{
+    if(!Array.isArray(PRODUCTS)) return [];
+    // sanitize
+    const raw = (code||'').toString();
+    const t = raw.replace(/\D/g,'');
+    if(!t) return [];
+    const last6 = t.slice(-6);
+    const last5 = t.slice(-5);
+    // normalize helpers
+    const norm = (x)=> (x==null? '': (''+x).replace(/\D/g,''));
+    const matches = PRODUCTS.filter(p=>{
+      const bc = norm(p.barcode);
+      // exact  or endsWith last6  or contains typed chunk (to be lenient)
+      return (bc === t) || (last6 && bc.endsWith(last6)) || (t.length>=6 && bc.includes(t)) || (last5 && bc.endsWith(last5));
+    });
+    return matches;
+  }catch(_){ return []; }
+}
+function openPriceInfo(p){
     try{
       $('piName').textContent = p.name || '—';
       $('piPrice').textContent = (typeof fmtTRY!=='undefined') ? fmtTRY.format(p.price||0) : (p.price||0)+' ₺';
@@ -1659,15 +1668,31 @@ window.askAdet = function(callback){
   }
 
   // Input search
-  document.addEventListener('input', function(ev){
-    if(ev.target && ev.target.id==='pcSearch'){
-      const v = ev.target.value || '';
-      if(v.replace(/\D/g,'').length>=6){
+  
+document.addEventListener('input', function(ev){
+  if(ev.target && ev.target.id==='pcSearch'){
+    const v = ev.target.value || '';
+    clearTimeout(window.__pcDebounce);
+    window.__pcDebounce = setTimeout(()=>{
+      const digits = v.replace(/\D/g,'');
+      if(digits.length >= 6){
         const matches = searchProductsByCode(v);
         handleResolved(matches);
       }
-    }
-  }, true);
+    }, 150);
+  }
+}, true);
+
+// Enter tuşu ile arama
+document.addEventListener('keydown', function(ev){
+  if(ev.target && ev.target.id==='pcSearch' && ev.key==='Enter'){
+    ev.preventDefault();
+    const v = ev.target.value || '';
+    const matches = searchProductsByCode(v);
+    handleResolved(matches);
+  }
+}, true);
+}, true);
 
   // Buttons
   document.addEventListener('click', function(ev){
@@ -1686,6 +1711,42 @@ window.askAdet = function(callback){
     handleResolved(matches);
   });
 
+})();
+</script>
+
+
+<script>
+// DK: Fiyat Gör butonunun sağlam yerleşimi ve tıklama yakalama
+(function(){
+  function ensureBtn(){
+    if (document.getElementById('btnPriceCheck')) return;
+    // Kamera Aç butonunu bul (id veya metinle)
+    var cam = document.querySelector('#btnCamOpen, #btnCam, button');
+    var btns = Array.from(document.querySelectorAll('button'));
+    var byText = btns.find(function(b){ return /kamera/i.test((b.textContent||'') + (b.innerText||'')); });
+    if (byText) cam = byText || cam;
+    if (!cam || !cam.parentNode) return;
+    // Yeni butonu oluştur
+    var b = document.createElement('button');
+    b.id = 'btnPriceCheck';
+    b.className = 'btn danger';
+    b.innerHTML = '<i class="fa-solid fa-tag"></i> Fiyat Gör';
+    // Kamera Aç butonunun hemen yanına ekle
+    cam.parentNode.insertBefore(b, cam.nextSibling);
+  }
+  // DOM hazır + dinamik değişimlerde butonu koru
+  document.addEventListener('DOMContentLoaded', ensureBtn);
+  var obs = new MutationObserver(ensureBtn);
+  obs.observe(document.documentElement || document.body, {childList:true, subtree:true});
+
+  // Her koşulda tıklamayı yakala
+  document.addEventListener('click', function(ev){
+    var t = ev.target && (ev.target.closest ? ev.target.closest('#btnPriceCheck') : null);
+    if (t){
+      ev.preventDefault();
+      try{ if (typeof openPriceCheck === 'function') openPriceCheck(); }catch(_){}
+    }
+  }, true);
 })();
 </script>
 
