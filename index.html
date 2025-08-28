@@ -146,6 +146,12 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 <audio id="sndCart"  src="sounds/cart.mp3"  preload="auto"></audio>
 <audio id="sndFail"  src="sounds/fail.mp3"  preload="auto"></audio>
 
+
+<!-- 🔊 Preloaded Audio Files -->
+<audio id="sndMatch" src="sounds/match.mp3" preload="auto"></audio>
+<audio id="sndCart"  src="sounds/cart.mp3"  preload="auto"></audio>
+<audio id="sndFail"  src="sounds/fail.mp3"  preload="auto"></audio>
+
 <header>
   <img src="logo.png" alt="Logo" />
   <h1>Fiyat Gör Etiket Bas</h1>
@@ -289,7 +295,7 @@ const inpBarcode=$('inpBarcode'), inpName=$('inpName'), cartCount=$('cartCount')
 const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:2});
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
-const beep=(ok=true)=>{ if(!FX) return; try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();o.type='sine';o.frequency.value=ok?880:220;const g=a.createGain();g.gain.setValueAtTime(0.25,a.currentTime);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+0.25);}catch(e){} if(navigator.vibrate) navigator.vibrate(ok?[180]:[220,80,220]); };
+
 const refocusAfterAction=(clear=false)=>{ if(IS_DESKTOP){ if(clear){ inpBarcode.value=''; inpName.value=''; } inpBarcode.focus(); inpBarcode.select(); } };
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
@@ -447,7 +453,7 @@ window.openProduct=function(p, source='manual'){
 
   mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
-  $('btnCustom').onclick=()=>{ const q=parseInt(prompt('Kaç adet?','1')); if(q>0) addToCart(p,q,old); };
+  $('btnCustom').onclick=()=>{ const q=parseInt(askAdet); if(q>0) addToCart(p,q,old); };
   $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
 }
 
@@ -1193,7 +1199,7 @@ window.beep = function(ok=true){
     .forEach(n=>wrapIf(n, ()=>playSound('sndCart')));
 })();
 
-// === Replace prompt("Kaç adet?") with custom modal ===
+// === Replace askAdet with custom modal ===
 window.askAdet = function(callback){
   const modal = document.getElementById('adetModal');
   const input = document.getElementById('adetInput');
@@ -1206,6 +1212,64 @@ window.askAdet = function(callback){
   function close(){ modal.style.display='none'; btnOk.onclick=null; btnCancel.onclick=null; }
   btnOk.onclick=function(){ close(); callback(input.value||""); };
   btnCancel.onclick=function(){ close(); callback(null); };
+};
+</script>
+
+
+<!-- 🔢 Custom Numeric Modal for +Adet -->
+<div id="adetModal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:20px;border-radius:12px;max-width:300px;width:80%;text-align:center;">
+    <h3 style="margin-top:0;">Kaç adet?</h3>
+    <input id="adetInput" type="tel" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:10px;font-size:18px;text-align:center;" />
+    <div style="margin-top:15px;display:flex;gap:10px;justify-content:center;">
+      <button id="adetCancel" style="padding:10px 20px;border:none;border-radius:8px;background:#ccc;">İptal</button>
+      <button id="adetOk" style="padding:10px 20px;border:none;border-radius:8px;background:#00c853;color:#fff;">Tamam</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === New beep() using MP3 ===
+function playSound(id){
+  try{
+    const el=document.getElementById(id);
+    if(el){ el.currentTime=0; el.play().catch(()=>{}); }
+  }catch(e){}
+}
+
+window.beep=function(ok=true){
+  if(ok===true){ playSound('sndMatch'); if(window.strongHaptic) strongHaptic(true); }
+  else if(ok===false){ playSound('sndFail'); if(window.strongHaptic) strongHaptic(false); }
+  else { playSound('sndCart'); if(window.strongHaptic) strongHaptic(true); }
+};
+
+// Override sepete ekle functions to force cart sound
+(function(){
+  function wrapIf(fnName,cb){
+    try{
+      const fn=window[fnName];
+      if(typeof fn==='function' && !fn.__wrappedCartAudio){
+        window[fnName]=function(){ try{cb&&cb();}catch(_){}
+          return fn.apply(this,arguments); };
+        window[fnName].__wrappedCartAudio=true;
+      }
+    }catch(e){}
+  }
+  ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart'].forEach(n=>wrapIf(n,()=>playSound('sndCart')));
+})();
+
+// === Replace askAdet with modal ===
+window.askAdet=function(callback){
+  const modal=document.getElementById('adetModal');
+  const input=document.getElementById('adetInput');
+  const btnOk=document.getElementById('adetOk');
+  const btnCancel=document.getElementById('adetCancel');
+  modal.style.display='flex';
+  input.value='';
+  setTimeout(()=>{input.focus();},100);
+  function close(){modal.style.display='none';btnOk.onclick=null;btnCancel.onclick=null;}
+  btnOk.onclick=function(){close();callback(input.value||"");};
+  btnCancel.onclick=function(){close();callback(null);};
 };
 </script>
 
