@@ -1150,8 +1150,20 @@ function onFail(){
 </script>
 
 
+<!-- 🔢 Custom Numeric Modal for +Adet -->
+<div id="adetModal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:20px;border-radius:12px;max-width:300px;width:80%;text-align:center;">
+    <h3 style="margin-top:0;">Kaç adet?</h3>
+    <input id="adetInput" type="tel" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:10px;font-size:18px;text-align:center;" />
+    <div style="margin-top:15px;display:flex;gap:10px;justify-content:center;">
+      <button id="adetCancel" style="padding:10px 20px;border:none;border-radius:8px;background:#ccc;">İptal</button>
+      <button id="adetOk" style="padding:10px 20px;border:none;border-radius:8px;background:#00c853;color:#fff;">Tamam</button>
+    </div>
+  </div>
+</div>
+
 <script>
-// === Override beep() to use MP3 files ===
+// === Override beep() with MP3 ===
 function playSound(id){
   try{
     const el = document.getElementById(id);
@@ -1164,7 +1176,6 @@ window.beep = function(ok=true){
   else if(ok===false){ playSound('sndFail'); if(window.strongHaptic) strongHaptic(false); }
 };
 
-// Ensure cart add also plays its own sound
 (function(){
   function wrapIf(fnName, cb){
     try{
@@ -1178,8 +1189,24 @@ window.beep = function(ok=true){
       }
     }catch(e){}
   }
-  ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart'].forEach(n=>wrapIf(n, ()=>playSound('sndCart')));
+  ['addToCart','addCart','sepeteEkle','urunSepeteEkle','handleAddToCart']
+    .forEach(n=>wrapIf(n, ()=>playSound('sndCart')));
 })();
+
+// === Replace prompt("Kaç adet?") with custom modal ===
+window.askAdet = function(callback){
+  const modal = document.getElementById('adetModal');
+  const input = document.getElementById('adetInput');
+  const btnOk = document.getElementById('adetOk');
+  const btnCancel = document.getElementById('adetCancel');
+  modal.style.display='flex';
+  input.value='';
+  setTimeout(()=>{ input.focus(); }, 100);
+
+  function close(){ modal.style.display='none'; btnOk.onclick=null; btnCancel.onclick=null; }
+  btnOk.onclick=function(){ close(); callback(input.value||""); };
+  btnCancel.onclick=function(){ close(); callback(null); };
+};
 </script>
 
 </body>
