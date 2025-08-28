@@ -123,12 +123,19 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 /* Modern confirm modal */
 .modal .confirmRow{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 
-
-/* Custom sizing for qty buttons */
-#btnQty1{padding:14px 20px;font-size:18px;font-weight:800}
-.btn.qty-small{padding:9px 12px;font-size:14px;font-weight:700}
-.btn.warn{background:var(--warn);color:#fff}
-
+/* === DK: Canlı Adet Butonları === */
+.actions .qty-btn{ color:#fff !important; font-weight:800; border:none !important; border-radius:14px; box-shadow:0 6px 16px rgba(0,0,0,.10) }
+.actions .qty-btn.one{ padding:1.05rem 1.25rem !important; font-size:17px !important }
+.actions .c-1{ background:#1570ef }  /* mavi */
+.actions .c-2{ background:#10b981 }  /* yeşil */
+.actions .c-3{ background:#f59e0b }  /* amber */
+.actions .c-4{ background:#06b6d4 }  /* camgöbeği */
+.actions .c-5{ background:#7c3aed }  /* mor */
+.actions .c-6{ background:#22c55e }  /* yeşil-2 */
+.actions .c-7{ background:#0ea5e9 }  /* açık mavi */
+.actions .c-8{ background:#ef4444 }  /* kırmızı */
+.actions .c-9{ background:#a855f7 }  /* menekşe */
+.actions .c-10{ background:#d946ef } /* fuşya */
 </style>
 <style>
 /* 🔊 Sesi Etkinleştir toast */
@@ -219,14 +226,24 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
   </div>
 
-  <div class="actions" style="flex-wrap:wrap;gap:8px;justify-content:center">
-  <button class="btn" style="font-size:18px;padding:16px 22px;background:#2563eb;color:#fff;" data-qty="1">1 Adet</button>
-  <button class="btn" style="background:#10b981;color:#fff;" data-qty="2">2 Adet</button>
-  <button class="btn" style="background:#f59e0b;color:#fff;" data-qty="3">3 Adet</button>
-  <button class="btn" style="background:#8b5cf6;color:#fff;" data-qty="5">5 Adet</button>
-  <button class="btn" style="background:#ef4444;color:#fff;" data-qty="10">10 Adet</button>
+  <div class="actions">
+
+  <button id="btnQty1" class="btn qty-btn one c-1" data-qty="1">1 Adet</button>
+  <button class="btn qty-btn c-2"  data-qty="2">2 Adet</button>
+  <button class="btn qty-btn c-3"  data-qty="3">3 Adet</button>
+  <button class="btn qty-btn c-4"  data-qty="4">4 Adet</button>
+  <button class="btn qty-btn c-5"  data-qty="5">5 Adet</button>
+  <button class="btn qty-btn c-6"  data-qty="6">6 Adet</button>
+  <button class="btn qty-btn c-7"  data-qty="7">7 Adet</button>
+  <button class="btn qty-btn c-8"  data-qty="8">8 Adet</button>
+  <button class="btn qty-btn c-9"  data-qty="9">9 Adet</button>
+  <button class="btn qty-btn c-10" data-qty="10">10 Adet</button>
   <button class="btn danger" id="btnCancel">İptal</button>
-</div>
+  <button class="btn" id="btnCustom" style="display:none" aria-hidden="true" tabindex="-1">Özel</button>
+
+</div></div>
+</div></div>
+
 <!-- Sepet modal -->
 <div id="mdlCart" class="modal"><div class="box">
   <h3>Sepet</h3>
@@ -1751,4 +1768,114 @@ window.askAdet = function(callback){
 })();
 </script>
 
-<!-- inline adet controls removed -->
+<script>
+(function(){
+  const CAP_OPTS = { capture: true, passive: false };
+  function onlyDigits(s){ return (s||'').replace(/[^\d]/g,''); }
+
+  function ensureInlineControls(){
+    try{
+      const modal = document.getElementById('mdlProduct');
+      if (!modal) return;
+      const actions = modal.querySelector('.actions');
+      if (!actions) return;
+
+      const oldCustom = actions.querySelector('#btnCustom');
+      if (oldCustom) oldCustom.style.display = 'none';
+
+      if (actions.querySelector('#qtyCustomInline')) return;
+
+      const wrap = document.createElement('span');
+      wrap.style.display='inline-flex';
+      wrap.style.alignItems='center';
+      wrap.style.gap='8px';
+      wrap.style.marginLeft='6px';
+
+      const inp = document.createElement('input');
+      inp.id='qtyCustomInline';
+      inp.type='tel';
+      inp.setAttribute('inputmode','numeric');
+      inp.setAttribute('pattern','[0-9]*');
+      inp.placeholder='Adet';
+      inp.style.width='84px';
+      inp.style.textAlign='center';
+      inp.style.padding='8px 10px';
+      inp.style.fontSize='16px';
+      inp.style.border='1px solid #ccc';
+      inp.style.borderRadius='10px';
+
+      const plus = document.createElement('button');
+      plus.className='btn';
+      plus.id='btnInlineAdd';
+      plus.type='button';
+      plus.textContent='+';
+
+      const ok = document.createElement('button');
+      ok.className='btn';
+      ok.id='btnInlineConfirm';
+      ok.type='button';
+      ok.textContent='Onayla';
+      ok.style.background='#28a745';
+      ok.style.color='#fff';
+      ok.style.fontWeight='600';
+
+      wrap.appendChild(plus);
+      wrap.appendChild(inp);
+      wrap.appendChild(ok);
+
+      const oneBtn = actions.querySelector('#btnQty1') || actions.firstElementChild;
+      if (oneBtn && oneBtn.nextSibling){
+        actions.insertBefore(wrap, oneBtn.nextSibling);
+      } else {
+        actions.appendChild(wrap);
+      }
+
+      setTimeout(()=>{try{inp.focus();inp.select();}catch(_){}} ,50);
+    }catch(_){}
+  }
+
+  function safeAddFromInput(){
+    try{
+      const inp = document.getElementById('qtyCustomInline');
+      const q = parseInt(onlyDigits(inp && inp.value),10) || 0;
+      const p = window.__lastProduct || null;
+      const old = !!window.__lastIsOld;
+      if (q>0 && p && typeof window.addToCart==='function'){
+        window.addToCart(p, q, old);
+        try{ if (typeof playSound==='function') playSound('sndCart'); }catch(_){}
+        try{ const mdl = document.getElementById('mdlProduct'); if (mdl) mdl.classList.remove('shown'); }catch(_){}
+        try{ if (typeof refocusAfterAction==='function') refocusAfterAction(true); }catch(_){}
+      }
+    }catch(_){}
+  }
+
+  document.addEventListener('click', function(ev){
+    const t = ev.target;
+    if (!t) return;
+    if (t.id === 'btnInlineAdd' || t.id === 'btnInlineConfirm'){
+      ev.preventDefault(); ev.stopPropagation();
+      safeAddFromInput();
+    }
+  }, CAP_OPTS);
+
+  document.addEventListener('keydown', function(ev){
+    const t = ev.target;
+    if (!t) return;
+    if (t.id === 'qtyCustomInline' && ev.key === 'Enter'){
+      ev.preventDefault(); ev.stopPropagation();
+      safeAddFromInput();
+    }
+  }, CAP_OPTS);
+
+  document.addEventListener('input', function(ev){
+    const t = ev.target;
+    if (t && t.id === 'qtyCustomInline'){
+      t.value = onlyDigits(t.value);
+    }
+  }, CAP_OPTS);
+
+  document.addEventListener('DOMContentLoaded', ensureInlineControls);
+  const obs = new MutationObserver(ensureInlineControls);
+  obs.observe(document.documentElement || document.body, { childList:true, subtree:true });
+})();
+</script>
