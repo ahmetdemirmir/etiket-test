@@ -419,9 +419,29 @@ function reopenCamAfterAction(){ /* no-op in terminal build */ }
   // Bu bölümde aşağıda yer alan ilgili yerlere küçük yamalar eklenecek.
 })();
 
+
+/* ==== Sheets URL Resolver (non-breaking) ==== */
+function getSheetsURL(){
+  try{
+    const u = localStorage.getItem('etiket_sheets_url');
+    if(u && /^https?:\/\//i.test(u)) return u;
+  }catch(_){}
+  // fallback: existing hardcoded url
+  return 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
+}
+// Console helper: set via devtools without UI change
+window.__setSheetsURL = function(url){
+  if(typeof url==='string' && url.startsWith('http')){
+    localStorage.setItem('etiket_sheets_url', url);
+    alert('Sheets URL kaydedildi. Tekrar "Sheets\'ten Çek" yapın.');
+  }else{
+    alert('Geçerli bir URL girin (http...).');
+  }
+};
+
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
-  const url='https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
+  const url = getSheetsURL();
   fetch(url).then(r=>r.text()).then(csv=>{
     const wb=XLSX.read(csv,{type:'binary'});
     try{
