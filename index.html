@@ -159,6 +159,37 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
+
+<style id="dk-mobile-modal-fix">
+  /* Mobile modal stacking & layout hardening */
+  #mdlSearch.shown, #mdlProduct.shown {
+    position: fixed !important;
+    inset: 0 !important; /* top/right/bottom/left:0 */
+    z-index: 2147483647 !important; /* bring to absolute top */
+  }
+  /* Make sure internal box is above any canvases/videos */
+  #mdlSearch.shown .box, #mdlProduct.shown .box {
+    position: relative;
+    z-index: 2147483647 !important;
+    transform: none !important;
+  }
+  /* Neutralize accidental stacking contexts on the modal itself */
+  #mdlSearch, #mdlProduct {
+    transform: none !important;
+    filter: none !important;
+    will-change: auto !important;
+  }
+  /* While modal open, suppress background scroll and sink camera layer */
+  body.modal-open { overflow: hidden !important; }
+  body.modal-open #camera, 
+  body.modal-open #cameraWrap,
+  body.modal-open .camera,
+  body.modal-open video,
+  body.modal-open canvas {
+    z-index: 1 !important;
+  }
+</style>
+
 </head>
 <body>
 
@@ -387,24 +418,6 @@ function __dk_showNF(title, code, msg){
 }
 
 function __dk_submit(val){
-/* === DK: Son 8 hane ile anında popup (non-invasive) === */
-try{
-  const __dk_raw = String(arguments[0] ?? val ?? '');
-  const __dk_code = parseBarcode(__dk_raw);
-  if (Array.isArray(PRODUCTS) && PRODUCTS.length && __dk_code && __dk_code.length >= 8){
-    const __dk_last8 = __dk_code.slice(-8);
-    const __dk_matches = (PRODUCTS||[]).filter(p => parseBarcode(p.barcode).endsWith(__dk_last8));
-    if (__dk_matches.length === 1){
-      openProduct(__dk_matches[0], 'terminal');
-      try{ $('mdlProduct').querySelector('.box').scrollIntoView({block:'center', inline:'center'}); }catch(_){}
-      return;
-    } else if (__dk_matches.length > 1){
-      showResults(`Barkod son 8: ${__dk_last8}`, __dk_matches);
-      return;
-    }
-  }
-}catch(__dk_e){ /* sessiz geç */ }
-
   const raw = String(val||'').replace(/[\r\n]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
@@ -1728,6 +1741,49 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
+
+
+<script id="dk-mobile-modal-fix-js">
+  (function(){
+    const d = document;
+    const $ = id => d.getElementById(id);
+    const modals = ['mdlSearch','mdlProduct'].map($).filter(Boolean);
+    if(!modals.length) return;
+
+    function syncBodyLock(){
+      const anyShown = modals.some(m => m.classList.contains('shown'));
+      d.body.classList.toggle('modal-open', anyShown);
+    }
+
+    // Initial sync (in case a modal is already shown)
+    syncBodyLock();
+
+    // Observe class changes to toggle body lock and layering
+    const obs = new MutationObserver(syncBodyLock);
+    modals.forEach(m => obs.observe(m, { attributes: true, attributeFilter: ['class'] }));
+
+    // Also guard against accidental z-index resets after open
+    d.addEventListener('dk:modal:ensureTop', ()=>{
+      modals.forEach(m => {
+        if(m.classList.contains('shown')){
+          m.style.position = 'fixed';
+          m.style.zIndex = '2147483647';
+          m.style.top = '0'; m.style.left='0'; m.style.right='0'; m.style.bottom='0';
+        }
+      });
+    });
+
+    // Call ensureTop shortly after open (covers CSS transitions)
+    modals.forEach(m => {
+      m.addEventListener('transitionend', ()=> d.dispatchEvent(new Event('dk:modal:ensureTop')), true);
+      m.addEventListener('animationend', ()=> d.dispatchEvent(new Event('dk:modal:ensureTop')), true);
+    });
+
+    // Safety: ensure top on viewport changes (mobile rotation / address bar hide-show)
+    window.addEventListener('resize', ()=> d.dispatchEvent(new Event('dk:modal:ensureTop')));
+    window.addEventListener('orientationchange', ()=> d.dispatchEvent(new Event('dk:modal:ensureTop')));
+  })();
+</script>
 
 </body>
 </html>
