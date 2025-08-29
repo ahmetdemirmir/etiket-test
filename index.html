@@ -174,6 +174,11 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal{ z-index: 2147483000 !important; }
 </style>
 
+<style>
+/* === DK Mini Patch v1.0 — Popup compact + hide preview === */
+#mdlProduct .box{max-height:78vh !important; overflow:auto !important; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;}
+#mdlProduct .previewLabel{display:none !important;}
+</style>
 </head>
 <body>
 
@@ -1782,6 +1787,44 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
+
+
+<script>
+/* === DK Mini Patch v1.0 — ensure single modal, scroll top, hide preview === */
+(function(){
+  // Ensure single modal visible and scroll to top on product open
+  if (typeof window.openProduct === 'function') {
+    const __open = window.openProduct;
+    window.openProduct = function(p, source){
+      try {
+        // Close any other shown modals
+        document.querySelectorAll('.modal.shown').forEach(m => { if (m.id !== 'mdlProduct') m.classList.remove('shown'); });
+      } catch(e){}
+      __open(p, source);
+      try {
+        // Hide preview block defensively
+        const pv = document.querySelector('#mdlProduct .previewLabel');
+        if (pv) pv.style.display = 'none';
+        // Lock height & restore scroll
+        const bx = document.querySelector('#mdlProduct .box');
+        if (bx){ bx.style.maxHeight='78vh'; bx.style.overflow='auto'; bx.scrollTop = 0; }
+        // Scroll window to top (all devices)
+        setTimeout(function(){ window.scrollTo({top:0, behavior:'auto'}); }, 50);
+      } catch(e){}
+    };
+  } else {
+    // Fallback: on first user interaction, enforce layout
+    document.addEventListener('click', function(){
+      try{
+        const pv = document.querySelector('#mdlProduct .previewLabel');
+        if (pv) pv.style.display='none';
+        const bx = document.querySelector('#mdlProduct .box');
+        if (bx){ bx.style.maxHeight='78vh'; bx.style.overflow='auto'; }
+      }catch(e){}
+    }, { once:true });
+  }
+})();
+</script>
 
 </body>
 </html>
