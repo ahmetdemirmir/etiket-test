@@ -7,9 +7,7 @@
 
 <!-- Icons & Libs -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ __dk_refocusFull(false); }catch(_){} }); }catch(_){}
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -154,12 +152,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 }
 #soundUnlockToast.hidden{ display:none; }
 </style>
-
-<style id="dk-modal-boost">
-/* Modal üstte kalsın (mobilde olası örtüşmeleri engelle) */
-.modal{ z-index: 99999 !important; }
-</style>
-
 </head>
 <body>
 
@@ -197,7 +189,8 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
 
     <div class="control" style="margin-top:8px">
-      <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
+      <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
+<input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
 <input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
@@ -348,88 +341,75 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== DK: EDA71 - Tam Barkod (STRICT) ==== */
+/* ==== DK: Barkod ile Arama — Strict & Toggle ==== */
 const inpFull = $('inpFull');
+const btnFull = $('btnFull');
+let FULL_ACTIVE = false;
 
-function __dk_refocusFull(clear=false){
-  try{
-    if(clear && inpFull){ inpFull.value=''; }
-    if(inpFull){ inpFull.focus(); if(inpFull.select) inpFull.select(); }
-  }catch(_){}
-}
+function __dk_normDigits(s){ return String(s??'').replace(/\D/g,''); }
 
-function findProductStrict(code){
+function __dk_findProductStrict(code){
   const arr = PRODUCTS || [];
-  const norm = s => String(s??'').replace(/\D/g,'');
-  const c = norm(code);
+  const c = __dk_normDigits(code);
   if(!c) return null;
-  // 1) Tam eşleşme
-  let exact = arr.find(p => norm(p.barcode) === c);
+  // Tam eşleşme
+  let exact = arr.find(p => __dk_normDigits(p.barcode) === c);
   if(exact) return exact;
-  // 2) EAN<->UPC (12<->13) toleransı
+  // EAN<->UPC toleransı (12<->13)
   if(c.length === 13){
     const c12 = c.slice(1);
-    let upc = arr.find(p => {
-      const pb = norm(p.barcode);
-      return pb.length===12 && pb===c12;
-    });
+    let upc = arr.find(p => { const pb = __dk_normDigits(p.barcode); return pb.length===12 && pb===c12; });
     if(upc) return upc;
   }else if(c.length === 12){
-    let ean = arr.find(p => {
-      const pb = norm(p.barcode);
-      return pb.length===13 && pb.slice(1)===c;
-    });
+    let ean = arr.find(p => { const pb = __dk_normDigits(p.barcode); return pb.length===13 && pb.slice(1)===c; });
     if(ean) return ean;
   }
   return null;
 }
 
-function __dk_submitFull(){
+function __dk_fullSubmit(){
   try{
-    const raw = (inpFull && inpFull.value!=null) ? String(inpFull.value) : '';
-    // Çoğu tarayıcı Enter öncesi \r veya \n bırakabilir
-    const cleaned = raw.replace(/[\r\n]+/g,'');
-    const code = parseBarcode(cleaned);
-    if(!code || code.length<8){
-      __dk_refocusFull(true);
-      return;
-    }
-    const p = findProductStrict(code);
+    const raw = String(inpFull.value || '').replace(/[\r\n]+/g,'');
+    const code = parseBarcode(raw);
+    if(!code || code.length<8){ /* yetersiz */ return; }
+    const p = __dk_findProductStrict(code);
+    // Alanı HER DURUMDA temizle
+    try{ inpFull.value=''; }catch(_){}
     if(p){
-      // Alanı açmadan hemen temizle (mobilde overlay riskini azaltır)
-      try{ inpFull.value=''; }catch(_){}
       openProduct(p,'terminal');
+      // Otomatik odak yok — kullanıcı tekrar butona basana kadar
     }else{
-      // Kesin eşleşme yoksa hiçbir fallback yok
       try{ showToast('Barkod bulunamadı'); }catch(_){}
-      __dk_refocusFull(true);
     }
-  }catch(_){
-    __dk_refocusFull(true);
-  }
+  }catch(_){ /* sessiz */ }
 }
 
-// Donanım tarayıcılar Enter veya Tab gönderebilir
+if(btnFull){
+  btnFull.addEventListener('click', ()=>{
+    FULL_ACTIVE = true;
+    try{ inpFull.focus(); inpFull.select && inpFull.select(); }catch(_){}
+  });
+}
+
 if(inpFull){
+  // Fiziksel tarayıcı Enter/Tab ya da yalnızca newline bırakabilir
   inpFull.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter' || e.key === 'Tab'){
       e.preventDefault();
-      __dk_submitFull();
+      __dk_fullSubmit();
     }
   });
-  // Bazı cihazlar yalnızca \n enjekte eder — input değişimini de izleyelim
   let __dk_deb;
   inpFull.addEventListener('input', ()=>{
     const v = String(inpFull.value||'');
     if(/\r|\n/.test(v)){
       clearTimeout(__dk_deb);
-      __dk_deb = setTimeout(__dk_submitFull, 20);
+      __dk_deb = setTimeout(__dk_fullSubmit, 10);
     }
   });
+  // Kullanıcı klavyeyi kapatırsa (back/blur), bir daha otomatik açma
+  inpFull.addEventListener('blur', ()=>{ FULL_ACTIVE = false; });
 }
-
-// Popup kapatma ve işlem sonrasında odayı geri inpFull'a ver
-// (mevcut akışa müdahale etmiyoruz; yalnızca ek bir odak çağrısı ekliyoruz)
 
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
@@ -572,7 +552,7 @@ window.openProduct=function(p, source='manual'){
   try{ window.__lastProduct=p; window.__lastIsOld=old; if (typeof playSound==="function") playSound("sndCart"); }catch(e){} mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
   $('btnCustom').onclick=()=>{ const q=parseInt(askAdet); if(q>0) addToCart(p,q,old); };
-  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); try{ __dk_refocusFull(true); }catch(_){}};
+  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
 }
 
 function reopenCamAfterAction(){
@@ -588,7 +568,7 @@ function addToCart(p,qty,isOldFlag){
   const idx=CART.findIndex(x=>x.barcode===p.barcode);
   if(idx>-1) CART[idx].qty+=qty; else CART.push({barcode:p.barcode,name:p.name,price:p.price,isOld:!!isOldFlag,qty});
   setCart(CART);
-  mdl.classList.remove('shown'); beep(true); refocusAfterAction(true); try{ __dk_refocusFull(true); }catch(_){}
+  mdl.classList.remove('shown'); beep(true); refocusAfterAction(true);
   reopenCamAfterAction(); // yalnızca scanner akışında ve kullanıcı kapatmadıysa
 }
 
