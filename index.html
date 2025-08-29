@@ -154,6 +154,12 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 }
 #soundUnlockToast.hidden{ display:none; }
 </style>
+
+<style id="dk-modal-boost">
+/* Modal üstte kalsın (mobilde olası örtüşmeleri engelle) */
+.modal{ z-index: 99999 !important; }
+</style>
+
 </head>
 <body>
 
@@ -342,52 +348,88 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== DK: EDA71 - Tam Barkod Okutma Alanı (non-breaking) ==== */
+/* ==== DK: EDA71 - Tam Barkod (STRICT) ==== */
 const inpFull = $('inpFull');
 
 function __dk_refocusFull(clear=false){
   try{
     if(clear && inpFull){ inpFull.value=''; }
-    if(inpFull){ inpFull.focus(); inpFull.select && inpFull.select(); }
+    if(inpFull){ inpFull.focus(); if(inpFull.select) inpFull.select(); }
   }catch(_){}
 }
 
-// Enter ile kesin eşleşme -> popup
-function __dk_handleFullEnter(){
+function findProductStrict(code){
+  const arr = PRODUCTS || [];
+  const norm = s => String(s??'').replace(/\D/g,'');
+  const c = norm(code);
+  if(!c) return null;
+  // 1) Tam eşleşme
+  let exact = arr.find(p => norm(p.barcode) === c);
+  if(exact) return exact;
+  // 2) EAN<->UPC (12<->13) toleransı
+  if(c.length === 13){
+    const c12 = c.slice(1);
+    let upc = arr.find(p => {
+      const pb = norm(p.barcode);
+      return pb.length===12 && pb===c12;
+    });
+    if(upc) return upc;
+  }else if(c.length === 12){
+    let ean = arr.find(p => {
+      const pb = norm(p.barcode);
+      return pb.length===13 && pb.slice(1)===c;
+    });
+    if(ean) return ean;
+  }
+  return null;
+}
+
+function __dk_submitFull(){
   try{
     const raw = (inpFull && inpFull.value!=null) ? String(inpFull.value) : '';
-    const code = parseBarcode(raw);
-    if(code && code.length>=8){
-      const p = (typeof findProduct==='function') ? findProduct(code) : null;
-      if(p){
-        // popup aç, alanı temizle (popup açıkken zaten odak gerekmiyor)
-        try{ inpFull.value=''; }catch(_){}
-        openProduct(p, 'terminal');
-        return;
-      }else{
-        // eşleşme yoksa son-6 fallback
-        if(inpBarcode){
-          inpBarcode.value = code.slice(-6);
-          inpBarcode.dispatchEvent(new Event('input', {bubbles:true}));
-        }
-      }
+    // Çoğu tarayıcı Enter öncesi \r veya \n bırakabilir
+    const cleaned = raw.replace(/[\r\n]+/g,'');
+    const code = parseBarcode(cleaned);
+    if(!code || code.length<8){
+      __dk_refocusFull(true);
+      return;
     }
-  }catch(_){}
-  // her durumda alanı temizle ve tekrar odakla
-  __dk_refocusFull(true);
+    const p = findProductStrict(code);
+    if(p){
+      // Alanı açmadan hemen temizle (mobilde overlay riskini azaltır)
+      try{ inpFull.value=''; }catch(_){}
+      openProduct(p,'terminal');
+    }else{
+      // Kesin eşleşme yoksa hiçbir fallback yok
+      try{ showToast('Barkod bulunamadı'); }catch(_){}
+      __dk_refocusFull(true);
+    }
+  }catch(_){
+    __dk_refocusFull(true);
+  }
 }
 
+// Donanım tarayıcılar Enter veya Tab gönderebilir
 if(inpFull){
   inpFull.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
+    if(e.key === 'Enter' || e.key === 'Tab'){
       e.preventDefault();
-      __dk_handleFullEnter();
+      __dk_submitFull();
+    }
+  });
+  // Bazı cihazlar yalnızca \n enjekte eder — input değişimini de izleyelim
+  let __dk_deb;
+  inpFull.addEventListener('input', ()=>{
+    const v = String(inpFull.value||'');
+    if(/\r|\n/.test(v)){
+      clearTimeout(__dk_deb);
+      __dk_deb = setTimeout(__dk_submitFull, 20);
     }
   });
 }
 
-// Popup kapandıktan / işlemden sonra inpFull'a geri odaklan
-// Mevcut kodu bozmamak için "ek" odak çağrıları ekliyoruz.
+// Popup kapatma ve işlem sonrasında odayı geri inpFull'a ver
+// (mevcut akışa müdahale etmiyoruz; yalnızca ek bir odak çağrısı ekliyoruz)
 
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
