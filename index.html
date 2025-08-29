@@ -160,14 +160,14 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 </style>
 
 
-<style id="dk-modal-dimensions">
-  /* Referans boyuta yakın, merkezde kalsın */
+<style id="dk-modal-and-kboff">
   #mdlProduct .box, #mdlSearch .box{
     max-width: 520px !important;
     width: min(92vw, 520px) !important;
     margin-left: auto !important;
     margin-right: auto !important;
   }
+  #inpBarcode.kb-off { caret-color: transparent !important; }
 </style>
 
 </head>
@@ -1723,47 +1723,41 @@ window.askAdet = function(callback){
 </div></div>
 
 
-<script id="dk-sticky-and-kb-toggle">
+<script id="dk-kb-toggle-and-buffer">
 (function(){
   const d=document, $=id=>d.getElementById(id);
-  const KB_KEY='dk_kb_mode'; // 'on' | 'off'
-  const el = $('inpBarcode');
-  const btn = $('btnKbToggle');
+  const el = $('inpBarcode'); const btn = $('btnKbToggle');
   if(!el || !btn) return;
+
+  const KB_KEY='dk_kb_mode'; // 'on' | 'off'
+  let STICKY=true;           // Son 6 alanı odakta tutma
+  let BUF=''; let T=null;    // Global digit buffer (debounced)
+
+  function label(mode){ return mode==='off' ? 'Klavye Kapalı' : 'Klavye Açık'; }
 
   function applyKbMode(mode){
     try{
       if(mode==='off'){
         el.setAttribute('inputmode','none');
-        el.removeAttribute('readonly'); // yazılabilir kalsın (donanım klavyesi için)
-        btn.textContent='Klavye Kapalı';
-        btn.classList.add('off');
-        // Klavyeyi kapatmak için odaktan çık; kullanıcı tekrar tıklamazsa açılmaz
-        try{ el.blur(); }catch(_){}
+        el.classList.add('kb-off');
       }else{
         el.setAttribute('inputmode','numeric');
-        el.removeAttribute('readonly');
-        btn.textContent='Klavye Açık';
-        btn.classList.remove('off');
-        // Kullanıcı butona bastığı an gesture var: odak & seç
-        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
-        try{ el.select(); }catch(_){}
+        el.classList.remove('kb-off');
       }
+      btn.textContent = label(mode);
       localStorage.setItem(KB_KEY, mode);
     }catch(_){}
   }
 
-  // Toggle
-  btn.addEventListener('click', function(){
+  btn.addEventListener('click', ()=>{
     const cur = (localStorage.getItem(KB_KEY)||'on');
     applyKbMode(cur==='on' ? 'off' : 'on');
+    try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
+    try{ el.select(); }catch(_){}
   });
 
-  // İlk yükleme — kalıcı ayarı uygula (varsayılan: 'on')
   applyKbMode(localStorage.getItem(KB_KEY) || 'on');
 
-  // Sticky focus: başka bir alana bilerek tıklanana kadar orada kal
-  let STICKY=true;
   el.addEventListener('focus', ()=>{ STICKY=true; }, true);
   d.addEventListener('pointerdown', (ev)=>{
     const t=ev.target, tag=(t?.tagName||'').toLowerCase();
@@ -1779,23 +1773,32 @@ window.askAdet = function(callback){
     },50);
   }, true);
 
-  // Arama modalı kapanınca tekrar odak
+  d.addEventListener('keydown', (e)=>{
+    if (window.FULL_ACTIVE) return;
+    const k=e.key;
+    if(!/^[0-9]$/.test(k)) return;
+    if(d.activeElement!==el && !STICKY) return;
+
+    BUF += k; if(BUF.length>32) BUF = BUF.slice(-32);
+    if(T) clearTimeout(T);
+    T = setTimeout(()=>{
+      const t = BUF.replace(/\\D/g,'');
+      if(t.length>=2){
+        try{ filterByLast6(t.slice(-6)); }catch(_){}
+      }
+    }, 100);
+  }, true);
+
   try{
     const btnClose=$('btnSearchClose');
     if(btnClose){
       btnClose.addEventListener('click', ()=>{
+        try{ el.value=''; }catch(_){}
         try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
         try{ el.select(); }catch(_){}
       });
     }
   }catch(_){}
-
-  // Sepete atıldıktan sonra tekrar odak: mevcut fonksiyon çağırsın diye hook yoksa güvenlik ağı
-  d.addEventListener('dk:refocus:last6', ()=>{
-    try{ el.value=''; }catch(_){}
-    try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
-    try{ el.select(); }catch(_){}
-  });
 })();
 </script>
 
