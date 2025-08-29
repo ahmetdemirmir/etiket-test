@@ -136,6 +136,12 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .actions .c-8{ background:#ef4444 }  /* kırmızı */
 .actions .c-9{ background:#a855f7 }  /* menekşe */
 .actions .c-10{ background:#d946ef } /* fuşya */
+
+/* === DK Patch: Product modal sizing tuned for on-screen keyboards === */
+#mdlProduct .box{ width:min(92vw,520px); padding:14px; }
+#mdlProduct .price{ font-size:30px; }
+.modal .box{ max-height:82vh; overflow:auto; }
+
 </style>
 <style>
 /* 🔊 Sesi Etkinleştir toast */
@@ -195,8 +201,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     </div>
 
     <div class="control" style="margin-top:8px">
-      <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
-<input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
+<input id="inpFull" style="display:none" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
 <input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
@@ -298,6 +303,14 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
 <script>
 (function(){
+
+/* === DK Patch Guard: Hide legacy full-barcode controls if present === */
+try{
+  const _btnFull = document.getElementById('btnFull');
+  if(_btnFull){ _btnFull.style.display = 'none'; }
+  const _inpFull = document.getElementById('inpFull');
+  if(_inpFull){ _inpFull.style.display = 'none'; }
+}catch(_){}
 // === LAYOUT CONFIG (27/sayfa) ===
 const LABELS_PER_PAGE = { cols: 3, rows: 9, gapPx: 6, pagePaddingPx: 12 }; // 3x9=27
 const EDGE_SHIFT_PX = 4; // Sol kolon -4px, sağ kolon +4px
@@ -329,7 +342,7 @@ const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maxi
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
 
-const refocusAfterAction=(clear=false)=>{ if(IS_DESKTOP){ if(clear){ inpBarcode.value=''; inpName.value=''; } inpBarcode.focus(); inpBarcode.select(); } };
+const refocusAfterAction = (clear=false)=>{  try{    const el = $('inpBarcode');    if(!el) return;    if(clear){ el.value=''; }    setTimeout(()=>{      try{ el.focus(); if(el.select) el.select(); }catch(_){ }    }, 120);  }catch(_){ }};
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
