@@ -159,6 +159,17 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
+
+<style id="dk-modal-dimensions">
+  /* Referans boyuta yakın, merkezde kalsın */
+  #mdlProduct .box, #mdlSearch .box{
+    max-width: 520px !important;
+    width: min(92vw, 520px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+</style>
+
 </head>
 <body>
 
@@ -198,7 +209,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     <div class="control" style="margin-top:8px">
       <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
 <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
-<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
+<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/><button id="btnKbToggle" class="btn neutral" style="margin-left:8px;white-space:nowrap;">Klavye Açık</button>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
@@ -330,7 +341,7 @@ const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maxi
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
 
-const refocusAfterAction=(clear=false)=>{ try{   if(clear){ try{ inpBarcode.value=''; }catch(_){ } try{ inpName.value=''; }catch(_){ } }   if(typeof inpBarcode!=='undefined' && inpBarcode){     try{ inpBarcode.focus({preventScroll:true}); }catch(_){ inpBarcode.focus(); }     try{ inpBarcode.select(); }catch(_){ }   } }catch(_){ }};
+const refocusAfterAction=(clear=false)=>{ if(IS_DESKTOP){ if(clear){ inpBarcode.value=''; inpName.value=''; } inpBarcode.focus(); inpBarcode.select(); } };
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
@@ -1712,33 +1723,63 @@ window.askAdet = function(callback){
 </div></div>
 
 
-/* === DK: Sticky focus for Son 6 alanı (mobile + desktop) === */
+<script id="dk-sticky-and-kb-toggle">
 (function(){
   const d=document, $=id=>d.getElementById(id);
-  const el = $('inpBarcode'); if(!el) return;
-  let STICKY_LAST6=false;
+  const KB_KEY='dk_kb_mode'; // 'on' | 'off'
+  const el = $('inpBarcode');
+  const btn = $('btnKbToggle');
+  if(!el || !btn) return;
 
-  el.addEventListener('focus', ()=>{ STICKY_LAST6=true; }, true);
-  el.addEventListener('blur', (e)=>{
-    // Eğer kullanıcı başka bir giriş alanına tıklamadıysa, tekrar odakla
-    setTimeout(()=>{
-      if(STICKY_LAST6 && d.activeElement!==el){
+  function applyKbMode(mode){
+    try{
+      if(mode==='off'){
+        el.setAttribute('inputmode','none');
+        el.removeAttribute('readonly'); // yazılabilir kalsın (donanım klavyesi için)
+        btn.textContent='Klavye Kapalı';
+        btn.classList.add('off');
+        // Klavyeyi kapatmak için odaktan çık; kullanıcı tekrar tıklamazsa açılmaz
+        try{ el.blur(); }catch(_){}
+      }else{
+        el.setAttribute('inputmode','numeric');
+        el.removeAttribute('readonly');
+        btn.textContent='Klavye Açık';
+        btn.classList.remove('off');
+        // Kullanıcı butona bastığı an gesture var: odak & seç
         try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
         try{ el.select(); }catch(_){}
       }
-    }, 50);
-  }, true);
+      localStorage.setItem(KB_KEY, mode);
+    }catch(_){}
+  }
 
-  // Kullanıcı başka bir "giriş" alanına bilerek tıkladığında sticky'yi kaldır
+  // Toggle
+  btn.addEventListener('click', function(){
+    const cur = (localStorage.getItem(KB_KEY)||'on');
+    applyKbMode(cur==='on' ? 'off' : 'on');
+  });
+
+  // İlk yükleme — kalıcı ayarı uygula (varsayılan: 'on')
+  applyKbMode(localStorage.getItem(KB_KEY) || 'on');
+
+  // Sticky focus: başka bir alana bilerek tıklanana kadar orada kal
+  let STICKY=true;
+  el.addEventListener('focus', ()=>{ STICKY=true; }, true);
   d.addEventListener('pointerdown', (ev)=>{
-    const t = ev.target;
-    if(!t) return;
-    const tag = (t.tagName||'').toLowerCase();
-    const isInput = tag==='input' || tag==='textarea' || tag==='select' || t.isContentEditable;
-    if(isInput && t!==el){ STICKY_LAST6=false; }
+    const t=ev.target, tag=(t?.tagName||'').toLowerCase();
+    const otherInput = (tag==='input'||tag==='textarea'||tag==='select'||t?.isContentEditable) && t!==el;
+    if(otherInput) STICKY=false;
+  }, true);
+  el.addEventListener('blur', ()=>{
+    setTimeout(()=>{
+      if(STICKY){
+        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
+        try{ el.select(); }catch(_){}
+      }
+    },50);
   }, true);
 
-  // Arama kapanınca tekrar odak
+  // Arama modalı kapanınca tekrar odak
   try{
     const btnClose=$('btnSearchClose');
     if(btnClose){
@@ -1748,7 +1789,15 @@ window.askAdet = function(callback){
       });
     }
   }catch(_){}
+
+  // Sepete atıldıktan sonra tekrar odak: mevcut fonksiyon çağırsın diye hook yoksa güvenlik ağı
+  d.addEventListener('dk:refocus:last6', ()=>{
+    try{ el.value=''; }catch(_){}
+    try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
+    try{ el.select(); }catch(_){}
+  });
 })();
+</script>
 
 </body>
 </html>
