@@ -153,11 +153,10 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 #soundUnlockToast.hidden{ display:none; }
 </style>
 
-<style id="dk-boost">
-/* Mobil PDA'larda modalın kesin üstte kalması için */
-.modal{ z-index: 2147483000 !important; }
-/* Kutu ortalanmış dursun */
-#nfBox{ max-width: 520px; }
+<style id="dk-mobile-boost">
+/* Mobil PDA'larda modalın en üstte kalması için maksimum z-index */
+.modal{ z-index: 2147483647 !important; }
+#nfBox{ max-width: 540px; }
 </style>
 
 </head>
@@ -349,11 +348,15 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== DK: Minimal Strict Full-Barcode + Center Modal ==== */
-const inpFull = $('inpFull');
+/* ==== DK: FULL Scan (Wedge) — Toggle, Strict, Mobile-safe ==== */
 const btnFull = $('btnFull');
+const inpFull = $('inpFull');
+let FULL_ACTIVE = false;
+let FULL_BUF = "";
+let FULL_TID = null;
 
 function __dk_nd(s){ return String(s??'').replace(/\D/g,''); }
+
 function __dk_findStrict(code){
   const arr = PRODUCTS || [];
   const c = __dk_nd(code);
@@ -373,52 +376,65 @@ function __dk_findStrict(code){
   return null;
 }
 
-function __dk_showNf(title, code, msg){
+function __dk_showNF(title, code, msg){
   try{
-    const mdl = $('mdlNf');
     $('nfTitle').textContent = title || 'Barkod Bulunamadı';
     $('nfCode').textContent = String(code||'—');
     $('nfMsg').firstChild && ($('nfMsg').firstChild.textContent = msg || 'Okutulan: ');
-    // Klavyeyi kapat: modal görünür olsun
     try{ inpFull && inpFull.blur(); }catch(_){}
-    setTimeout(()=>{ mdl.classList.add('shown'); }, 20);
-    $('btnNfClose').onclick = ()=> mdl.classList.remove('shown');
+    setTimeout(()=>{ $('mdlNf').classList.add('shown'); }, 10);
+    $('btnNfClose').onclick = ()=> $('mdlNf').classList.remove('shown');
   }catch(e){
-    alert((title||'Uyarı') + ' ' + (msg||'') + ' ' + (code||''));
+    alert((title||'Uyarı') + ': ' + (msg||'') + (code||''));
   }
 }
 
-function __dk_submitFull(){
-  try{
-    let raw = String(inpFull.value||'').replace(/[\r\n]+/g,'');
-    const code = parseBarcode(raw);
-    // alanı her durumda temizle
-    try{ inpFull.value = ''; }catch(_){}
-    // ürün yüklenmiş mi?
-    if(!Array.isArray(PRODUCTS) || PRODUCTS.length===0){
-      __dk_showNf('Veri Yüklenmedi', code, 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ');
-      return;
-    }
-    if(!code || code.length<8){ return; }
-    const p = __dk_findStrict(code);
-    if(p){ openProduct(p,'terminal'); }
-    else { __dk_showNf('Barkod Bulunamadı', code, 'Okutulan: '); }
-  }catch(_){}
+function __dk_submit(val){
+  const raw = String(val||'').replace(/[\r\n]+/g,'');
+  const code = parseBarcode(raw);
+  FULL_BUF = "";
+  if(inpFull){ try{ inpFull.value=''; }catch(_){ } }
+  if(!Array.isArray(PRODUCTS) || PRODUCTS.length===0){
+    __dk_showNF('Veri Yüklenmedi', code, 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ');
+    return;
+  }
+  if(!code || code.length<8){ return; }
+  const p = __dk_findStrict(code);
+  if(p){
+    try{ inpFull && inpFull.blur(); }catch(_){}
+    // Modalın görünürlüğü için blur sonrası aç
+    openProduct(p,'terminal');
+  }else{
+    __dk_showNF('Barkod Bulunamadı', code, 'Okutulan: ');
+  }
 }
 
-// Butona basınca sadece bir defa odakla; kullanıcı klavyeyi kapatırsa tekrar açma
+function __dk_queueSubmit(){
+  if(FULL_TID){ clearTimeout(FULL_TID); }
+  // inactivity-based submit (cihaz Enter göndermese bile)
+  FULL_TID = setTimeout(()=>{ __dk_submit(FULL_BUF); }, 120);
+}
+
+// Toggle behavior: one click -> ACTIVE; second click -> INACTIVE
 if(btnFull){
   btnFull.addEventListener('click', ()=>{
-    try{ inpFull && inpFull.focus(); if(inpFull && inpFull.select) inpFull.select(); }catch(_){}
+    FULL_ACTIVE = !FULL_ACTIVE;
+    FULL_BUF = "";
+    if(FULL_ACTIVE){
+      try{ inpFull && inpFull.focus(); if(inpFull && inpFull.select) inpFull.select(); }catch(_){}
+      try{ btnFull.classList.add('primary'); }catch(_){}
+    }else{
+      try{ btnFull.classList.remove('primary'); }catch(_){}
+    }
   });
 }
 
-// Enter/Tab veya \n ile tetikleme (input-level, global değil)
+// Input-level handlers (for on-screen keyboard cases)
 if(inpFull){
   inpFull.addEventListener('keydown', (e)=>{
     if(e.key==='Enter' || e.key==='Tab'){
       e.preventDefault();
-      __dk_submitFull();
+      __dk_submit(inpFull.value);
     }
   });
   let _deb;
@@ -426,10 +442,47 @@ if(inpFull){
     const v = String(inpFull.value||'');
     if(/\r|\n/.test(v)){
       clearTimeout(_deb);
-      _deb = setTimeout(__dk_submitFull, 10);
+      _deb = setTimeout(()=> __dk_submit(v), 10);
     }
   });
 }
+
+// Global capture while FULL_ACTIVE: prevents "son 6" from hijacking the scan
+// Use capture phase to intercept before inputs receive keys.
+function _dk_globalKeyHandler(e){
+  if(!FULL_ACTIVE) return;
+  const k = e.key;
+  if(/^[0-9]$/.test(k)){
+    e.preventDefault(); e.stopPropagation();
+    FULL_BUF += k;
+    if(inpFull){ try{ inpFull.value = FULL_BUF; }catch(_){ } }
+    __dk_queueSubmit();
+  }else if(k==='Backspace'){
+    e.preventDefault(); e.stopPropagation();
+    FULL_BUF = FULL_BUF.slice(0,-1);
+    if(inpFull){ try{ inpFull.value = FULL_BUF; }catch(_){ } }
+  }else if(k==='Enter' || k==='Tab'){
+    e.preventDefault(); e.stopPropagation();
+    const v = FULL_BUF;
+    __dk_submit(v);
+  }else if(k==='Escape'){
+    e.preventDefault(); e.stopPropagation();
+    FULL_BUF = "";
+    if(inpFull){ try{ inpFull.value=''; }catch(_){ } }
+  }
+}
+document.addEventListener('keydown', _dk_globalKeyHandler, true);
+
+/* Mobile modal safety: when product modal opens, blur inpFull to avoid keyboard overlay */
+(function(){
+  const _open = window.openProduct;
+  if(typeof _open === 'function'){
+    window.openProduct = function(p, source){
+      try{ inpFull && inpFull.blur(); }catch(_){}
+      return _open(p, source||'terminal');
+    };
+  }
+})();
 
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
