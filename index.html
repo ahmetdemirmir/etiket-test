@@ -317,15 +317,31 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
 
 
-/* === DK v2.1 Keyboard Flow Addon === */
+
+/* === DK v2.1 Keyboard Flow Addon (v2): stronger hide on modal open === */
 (function(){
   const $ = (id)=>document.getElementById(id);
-  function hideSoftKeyboard(){
+
+  function forceHideKeyboard(){
     try{
+      // Blur active element & last6
       if(document.activeElement){ document.activeElement.blur(); }
       const last6 = $('inpBarcode'); if(last6) last6.blur();
+      // Offscreen input trick to collapse IME on stubborn devices
+      const tmp = document.createElement('input');
+      tmp.type = 'text';
+      tmp.style.position = 'fixed';
+      tmp.style.opacity = '0';
+      tmp.style.height = '0';
+      tmp.style.width = '0';
+      tmp.style.pointerEvents = 'none';
+      tmp.setAttribute('aria-hidden','true');
+      document.body.appendChild(tmp);
+      tmp.focus();
+      setTimeout(()=>{ try{ tmp.blur(); document.body.removeChild(tmp); }catch(_){ } }, 30);
     }catch(_){}
   }
+
   function showSoftKeyboard(){
     try{
       const el = $('inpBarcode'); if(!el) return;
@@ -335,7 +351,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     }catch(_){}
   }
 
-  // Wrap refocusAfterAction if exists so that when popup closes and last-6 is focused, keyboard opens
+  // Wrap refocusAfterAction to open keyboard when returning to last-6
   try{
     const _old = window.refocusAfterAction;
     window.refocusAfterAction = function(clear=false){
@@ -344,29 +360,36 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     };
   }catch(_){}
 
-  // Observe product modal; when it becomes visible, hide keyboard
-  function observeModal(){
-    const modal = document.getElementById('mdlProduct');
-    if(!modal) return;
-    const mo = new MutationObserver(()=>{
-      try{
-        const visible = modal && modal.offsetParent !== null && getComputedStyle(modal).display !== 'none';
-        if(visible){ hideSoftKeyboard(); }
-      }catch(_){}
-    });
-    mo.observe(modal, {attributes:true, childList:true, subtree:true});
+  // Broad modal detection: #mdlProduct or any .modal within body that becomes visible
+  function isVisible(el){
+    if(!el) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display === 'none' || cs.visibility === 'hidden') return false;
+    if(el.offsetParent === null && cs.position !== 'fixed') return false;
+    return true;
   }
 
-  // Also guard on clicks that might open the modal
-  document.addEventListener('click', ()=> setTimeout(()=>{
-    const modal = document.getElementById('mdlProduct');
-    if(modal && modal.offsetParent !== null){ hideSoftKeyboard(); }
-  }, 40));
+  function scanAndHide(){
+    const cand = document.getElementById('mdlProduct') || document.querySelector('.modal, [role="dialog"]');
+    if(cand && isVisible(cand)){ forceHideKeyboard(); }
+  }
 
-  // Init
-  setTimeout(observeModal, 150);
-  // Expose (optional)
-  window._dkHideKeyboard = hideSoftKeyboard;
+  // Observe deep mutations for robust detection
+  try{
+    const mo = new MutationObserver(()=> setTimeout(scanAndHide, 20));
+    mo.observe(document.body, {childList:true, subtree:true, attributes:true});
+  }catch(_){}
+
+  // Also listen to common lifecycle hooks
+  ['click','touchstart','transitionend','animationend'].forEach(ev=>{
+    document.addEventListener(ev, ()=> setTimeout(scanAndHide, 20), true);
+  });
+
+  // Initial pass
+  setTimeout(scanAndHide, 150);
+
+  // Export helpers
+  window._dkForceHideKeyboard = forceHideKeyboard;
   window._dkShowKeyboard = showSoftKeyboard;
 })();
 /* === DK Patch v2.1: Safer modal compactor (presets stay visible) === */
