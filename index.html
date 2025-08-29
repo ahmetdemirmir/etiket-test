@@ -200,7 +200,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
 <input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
-<input id="inpBarcodeFull" class="input" type="tel" placeholder="Barkod (tam yaz — Son6 ile ara)" autocomplete="off" / inputmode="numeric" pattern="\\d*">
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
       <button id="btnFD10" class="btn neutral"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Günde Değişenler</button>
@@ -388,6 +387,28 @@ function __dk_showNF(title, code, msg){
 }
 
 function __dk_submit(val){
+/* === DK: FULL barkod → Son-6 pipeline (mobile & web aynı modal davranışı) === */
+try{
+  const __raw = String(arguments[0] ?? val ?? '').replace(/[\r\n]+/g,'');
+  const __code = parseBarcode(__raw);
+  // Temizlik (orijinal akışla uyumlu)
+  try{ FULL_BUF = ""; }catch(_){}
+  try{ if(typeof inpFull!=='undefined' && inpFull) inpFull.value=''; }catch(_){}
+  if(!Array.isArray(PRODUCTS) || !PRODUCTS.length){
+    __dk_showNF('Veri Yüklenmedi', __code, 'Lütfen Excel yükleyin veya Sheets\\'ten çekin. Okutulan: ');
+    return;
+  }
+  if(__code && __code.length >= 6){
+    const __last6 = __code.slice(-6);
+    // *BİREBİR* Son-6 akışını tetikle — aynı showResults/mdlSearch davranışı
+    try{
+      if(typeof inpBarcode!=='undefined' && inpBarcode) inpBarcode.value = __last6;
+    }catch(_){}
+    filterByLast6(__last6);
+    return;
+  }
+}catch(__e){ /* sessiz geç */ }
+
   const raw = String(val||'').replace(/[\r\n]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
@@ -560,24 +581,6 @@ function filterByName(q){ const s=q.trim().toLowerCase(); if(s.length<2){ $('mdl
 function filterByLast6(v){ const t=v.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown'); }
 inpName.addEventListener('input', ()=>{ filterByName(inpName.value); });
 inpBarcode.addEventListener('input', ()=>{ filterByLast6(inpBarcode.value); });
-
-// Barkod (tam) alanı Son6 akışına delege eder
-if (typeof inpBarcodeFull !== 'undefined' && inpBarcodeFull){
-  const __dk_runFull = ()=>{
-    const raw = String(inpBarcodeFull.value||'').replace(/\D/g,'');
-    if(raw.length>=2){
-      const last6 = raw.slice(-6);
-      inpBarcode.value = last6;           // mevcut Son6 inputunu besle
-      filterByLast6(last6);               // aynı pipeline, aynı modal davranışı
-    } else {
-      $('mdlSearch').classList.remove('shown');
-    }
-  };
-  inpBarcodeFull.addEventListener('input', __dk_runFull);
-  inpBarcodeFull.addEventListener('change', __dk_runFull);
-  inpBarcodeFull.addEventListener('keyup', (e)=>{ if(e.key==='Enter'){ __dk_runFull(); } });
-}
-
 ;['inpName','inpBarcode'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter'){ const first=$('mList')?.firstElementChild; if(first){ first.click(); } }}));
 $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remove('shown'));
 
