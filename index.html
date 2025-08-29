@@ -159,6 +159,37 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
+
+<style id="dk-mobile-modal-fix">
+  /* === DK CSS-ONLY MOBILE MODAL LAYERING FIX === */
+  /* Neutralize stacking-context traps */
+  #mdlSearch, #mdlProduct {
+    transform: none !important;
+    -webkit-transform: none !important;
+    filter: none !important;
+    contain: none !important;
+    backface-visibility: hidden !important;
+    perspective: none !important;
+  }
+  /* Force modals above all other layers on mobile & desktop */
+  #mdlSearch.shown, #mdlProduct.shown {
+    position: fixed !important;
+    inset: 0 !important; /* top/right/bottom/left */
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+  }
+  /* Ensure modal content itself also sits on top and is scrollable */
+  #mdlSearch.shown .box, #mdlProduct.shown .box {
+    position: relative !important;
+    z-index: 2147483647 !important;
+    max-height: calc(100dvh - 24px) !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  /* Background remains interactive only when modal hidden; keep safe defaults */
+  body.modal-open { overflow: hidden !important; }
+</style>
+
 </head>
 <body>
 
@@ -387,28 +418,6 @@ function __dk_showNF(title, code, msg){
 }
 
 function __dk_submit(val){
-/* === DK: FULL barkod → Son-6 pipeline (mobile & web aynı modal davranışı) === */
-try{
-  const __raw = String(arguments[0] ?? val ?? '').replace(/[\r\n]+/g,'');
-  const __code = parseBarcode(__raw);
-  // Temizlik (orijinal akışla uyumlu)
-  try{ FULL_BUF = ""; }catch(_){}
-  try{ if(typeof inpFull!=='undefined' && inpFull) inpFull.value=''; }catch(_){}
-  if(!Array.isArray(PRODUCTS) || !PRODUCTS.length){
-    __dk_showNF('Veri Yüklenmedi', __code, 'Lütfen Excel yükleyin veya Sheets\\'ten çekin. Okutulan: ');
-    return;
-  }
-  if(__code && __code.length >= 6){
-    const __last6 = __code.slice(-6);
-    // *BİREBİR* Son-6 akışını tetikle — aynı showResults/mdlSearch davranışı
-    try{
-      if(typeof inpBarcode!=='undefined' && inpBarcode) inpBarcode.value = __last6;
-    }catch(_){}
-    filterByLast6(__last6);
-    return;
-  }
-}catch(__e){ /* sessiz geç */ }
-
   const raw = String(val||'').replace(/[\r\n]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
