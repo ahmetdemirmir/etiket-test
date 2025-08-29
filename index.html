@@ -8,25 +8,12 @@
 <!-- Icons & Libs -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
+try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ __dk_refocusFull(false); }catch(_){} }); }catch(_){}
 </script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js">
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 :root{
@@ -123,7 +110,14 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .old-ico{margin-left:6px; font-size:12px; display:inline-flex; align-items:center; line-height:1}
 .etiket-fiyat-etiket{text-align:center}
 
-/* Kamera katmanları kaldırıldı */
+/* Kamera katmanları */
+#camSheet,#camSheetIOS{position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;display:none}
+#camBox,#camBoxIOS{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(96vw,720px);background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden}
+#camHead,#camHeadIOS{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb}
+#camMount,#camMountIOS{position:relative;width:100%;height:380px;background:#000}
+#camMount video,#camMountIOS video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#camFoot,#camFootIOS{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #e5e7eb;background:#fafafa}
+
 /* Eski fiyat popup */
 #mdlOldWarn .box{border:2px solid #fecaca}
 #mdlOldWarn .warn{background:#fee2e2;border-color:#fecaca;color:#7f1d1d}
@@ -191,11 +185,13 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       <div class="control">
         <button id="btnCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
         <button id="btnPrint" class="btn success" style="font-size:16px"><i class="fa-solid fa-print"></i> Yazdır</button>
+        <button id="btnCam" class="btn primary" style="font-size:16px"><i class="fa-solid fa-camera"></i> Kamera Aç</button>
+        <button id="btnCamIOS" class="btn neutral" style="font-size:16px"><i class="fa-brands fa-apple"></i> Kamera Aç (iOS)</button>
       </div>
     </div>
 
     <div class="control" style="margin-top:8px">
-      <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go" />
+      <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
 <input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
@@ -346,102 +342,56 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== EDA71 Terminal Modu (Kamera Yok) ==== */
+/* ==== DK: EDA71 - Tam Barkod Okutma Alanı (non-breaking) ==== */
 const inpFull = $('inpFull');
 
-// refocus override: öncelik inpFull
-const _refocusOrig = refocusAfterAction;
-function refocusAfterAction(clear=false){
+function __dk_refocusFull(clear=false){
   try{
-    if(clear){
-      if(inpBarcode){ inpBarcode.value=''; }
-      if(inpName){ inpName.value=''; }
-      if(inpFull){ inpFull.value=''; }
-    }
-    if(inpFull){ inpFull.focus(); inpFull.select && inpFull.select(); return; }
+    if(clear && inpFull){ inpFull.value=''; }
+    if(inpFull){ inpFull.focus(); inpFull.select && inpFull.select(); }
   }catch(_){}
-  // fallback eski davranış
-  try{ _refocusOrig(clear); }catch(_){}
 }
 
-// EDA71: Enter ile kesin eşleşme
-function handleFullEnter(){
-  const raw = (inpFull && inpFull.value!=null) ? String(inpFull.value) : '';
-  const code = parseBarcode(raw);
-  if(code && code.length >= 8){
-    const p = (typeof findProduct==='function') ? findProduct(code) : null;
-    if(p){ openProduct(p,'terminal'); }
-    else{
-      // Eşleşme yoksa son-6 alanına aktar ve sonuç listesini açtır
-      if(inpBarcode){
-        inpBarcode.value = code.slice(-6);
-        inpBarcode.dispatchEvent(new Event('input',{bubbles:true}));
+// Enter ile kesin eşleşme -> popup
+function __dk_handleFullEnter(){
+  try{
+    const raw = (inpFull && inpFull.value!=null) ? String(inpFull.value) : '';
+    const code = parseBarcode(raw);
+    if(code && code.length>=8){
+      const p = (typeof findProduct==='function') ? findProduct(code) : null;
+      if(p){
+        // popup aç, alanı temizle (popup açıkken zaten odak gerekmiyor)
+        try{ inpFull.value=''; }catch(_){}
+        openProduct(p, 'terminal');
+        return;
+      }else{
+        // eşleşme yoksa son-6 fallback
+        if(inpBarcode){
+          inpBarcode.value = code.slice(-6);
+          inpBarcode.dispatchEvent(new Event('input', {bubbles:true}));
+        }
       }
     }
-  }
-  if(inpFull){ inpFull.value=''; }
-  // Odağı koru
-  try{ inpFull && inpFull.focus(); }catch(_){}
+  }catch(_){}
+  // her durumda alanı temizle ve tekrar odakla
+  __dk_refocusFull(true);
 }
 
 if(inpFull){
-  // Fiziksel tarayıcı Enter (CR/LF) gönderdiğinde tetikle
   inpFull.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){
       e.preventDefault();
-      handleFullEnter();
+      __dk_handleFullEnter();
     }
   });
 }
 
-// Kamera akışını tamamen devre dışı bırak
-function reopenCamAfterAction(){ /* no-op in terminal build */ }
-
-// Veri yüklenince barkod PNG cache "pre-warm"
-(function(){
-  const _badgeSet = (msg)=>{ try{ badgeData.innerHTML = msg; }catch(_){}};
-  const _setProducts = (arr, srcLabel)=>{
-    PRODUCTS = arr || [];
-    if(PRODUCTS.length>0){
-      // ilk 30'u ısıt
-      try{
-        for(let i=0;i<Math.min(30, PRODUCTS.length);i++){
-          getBarcodePng(PRODUCTS[i].barcode);
-        }
-      }catch(_){}
-      showToast('Veri yüklendi');
-    }else{
-      alert('Uygun satır bulunamadı.');
-    }
-  };
-
-  // Hook: Sheets ve Excel load sonrası noktalarına ufak proxy koyacağız
-  // Bu bölümde aşağıda yer alan ilgili yerlere küçük yamalar eklenecek.
-})();
-
-
-/* ==== Sheets URL Resolver (non-breaking) ==== */
-function getSheetsURL(){
-  try{
-    const u = localStorage.getItem('etiket_sheets_url');
-    if(u && /^https?:\/\//i.test(u)) return u;
-  }catch(_){}
-  // fallback: existing hardcoded url
-  return 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
-}
-// Console helper: set via devtools without UI change
-window.__setSheetsURL = function(url){
-  if(typeof url==='string' && url.startsWith('http')){
-    localStorage.setItem('etiket_sheets_url', url);
-    alert('Sheets URL kaydedildi. Tekrar "Sheets\'ten Çek" yapın.');
-  }else{
-    alert('Geçerli bir URL girin (http...).');
-  }
-};
+// Popup kapandıktan / işlemden sonra inpFull'a geri odaklan
+// Mevcut kodu bozmamak için "ek" odak çağrıları ekliyoruz.
 
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
-  const url = getSheetsURL();
+  const url='https://docs.google.com/spreadsheets/d/e/2PACX-1vSCE485ORNI2xxxHJkrfJy6IBBeso9hQHxfhZ6dkUShRQWngyeyR5VsZI7rKwBy0A/pub?output=csv';
   fetch(url).then(r=>r.text()).then(csv=>{
     const wb=XLSX.read(csv,{type:'binary'});
     try{
@@ -580,7 +530,7 @@ window.openProduct=function(p, source='manual'){
   try{ window.__lastProduct=p; window.__lastIsOld=old; if (typeof playSound==="function") playSound("sndCart"); }catch(e){} mdl.classList.add('shown');
   mdl.querySelectorAll('[data-qty]').forEach(b=> b.onclick=()=> addToCart(p,parseInt(b.dataset.qty),old));
   $('btnCustom').onclick=()=>{ const q=parseInt(askAdet); if(q>0) addToCart(p,q,old); };
-  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); };
+  $('btnCancel').onclick=()=>{ mdl.classList.remove('shown'); refocusAfterAction(true); try{ __dk_refocusFull(true); }catch(_){}};
 }
 
 function reopenCamAfterAction(){
@@ -596,7 +546,7 @@ function addToCart(p,qty,isOldFlag){
   const idx=CART.findIndex(x=>x.barcode===p.barcode);
   if(idx>-1) CART[idx].qty+=qty; else CART.push({barcode:p.barcode,name:p.name,price:p.price,isOld:!!isOldFlag,qty});
   setCart(CART);
-  mdl.classList.remove('shown'); beep(true); refocusAfterAction(true);
+  mdl.classList.remove('shown'); beep(true); refocusAfterAction(true); try{ __dk_refocusFull(true); }catch(_){}
   reopenCamAfterAction(); // yalnızca scanner akışında ve kullanıcı kapatmadıysa
 }
 
@@ -953,6 +903,122 @@ $('btnFD10').addEventListener('click', ()=>{
   const md=document.createElement('div'); md.className='modal shown'; md.innerHTML=`<div class="box"><h3>Son 10 Günde Fiyatı Değişenler</h3><div class="mini">Toplam grup: ${map.size}</div></div>`; md.querySelector('.box').appendChild(L); const row=document.createElement('div'); row.className='actions'; row.style.justifyContent='flex-end'; row.innerHTML='<button class="btn" id="fd10Close">Kapat</button>'; md.querySelector('.box').appendChild(row); document.body.appendChild(md); md.querySelector('#fd10Close').onclick=()=>md.remove();
 });
 
+/* ===== Kamera — Android ===== */
+(function(){
+  let stream=null, scanning=false, starting=false, rafId=null, bdDetector=null;
+  const SHEET_ID='camSheet';
+  const sheetEl=document.createElement('div'); sheetEl.id=SHEET_ID; sheetEl.innerHTML='<div id="camBox"><div id="camHead"><b>Kamera</b><div><button id="camClose" class="btn">Kapat</button></div></div><div id="camMount"><video id="camVideo" autoplay playsinline muted></video></div><div id="camFoot"><button id="camStop" class="btn">Durdur</button></div></div>'; document.body.appendChild(sheetEl);
+  const camSheet=sheetEl, camMount=document.getElementById('camMount'); const camCloseBtn=document.getElementById('camClose'); const camStopBtn=document.getElementById('camStop');
+  camCloseBtn.addEventListener('click', ()=>{ closeCam(true); }); camStopBtn.addEventListener('click', ()=>{ closeCam(true); });
+  const getVideo=()=>document.getElementById('camVideo');
+  function replaceVideo(){ const old=getVideo(); const v=document.createElement('video'); v.id='camVideo'; v.autoplay=true; v.playsInline=true; v.muted=true; if(old&&old.parentNode) old.parentNode.replaceChild(v,old); else camMount.appendChild(v); return v; }
+  async function pickRearDeviceId(){ try{ const devices=await navigator.mediaDevices.enumerateDevices(); const cams=devices.filter(d=>d.kind==='videoinput'); if(!cams.length) return null; let rear=cams.find(d=>/back|rear|environment/i.test(d.label)); return (rear||cams[cams.length-1]).deviceId; }catch(_){ return null; } }
+  async function tryGetStream(){ const rearId=await pickRearDeviceId(); const constraints = rearId?{video:{deviceId:{exact:rearId}, width:{ideal:1920}, height:{ideal:1080}, facingMode:{ideal:'environment'}}}:{video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}}; return await navigator.mediaDevices.getUserMedia(constraints); }
+  async function waitForPlaying(video,timeout=1500){ if(video.readyState>=2) return; await new Promise((res)=>{ let done=false; const ok=()=>{ if(done) return; done=true; cleanup(); res(); }; const tid=setTimeout(ok,timeout); const cleanup=()=>{ video.removeEventListener('loadeddata',ok); clearTimeout(tid); }; video.addEventListener('loadeddata',ok); }); }
+  function setBtnBusy(b){ const cam=$('btnCam'); if(cam) cam.disabled=b; }
+  async function startCamera(manual=false){
+    if(manual===true){ LAST_CAM_MODE='android'; CAMERA_WAS_USER_CLOSED=false; }
+    if(starting||scanning) return; starting=true; setBtnBusy(true); camSheet.style.display='block'; stopCamera(false);
+    let v=replaceVideo();
+    try{
+      stream=await tryGetStream();
+      v.srcObject=stream; await v.play().catch(()=>{}); await waitForPlaying(v,1500);
+    }catch(err){ starting=false; setBtnBusy(false); alert('Kamera başlatılamadı: '+(err?.message||err)); camSheet.style.display='none'; return; }
+    let canBD='BarcodeDetector' in window;
+    if(canBD){
+      try{ const supported=await BarcodeDetector.getSupportedFormats(); const wanted=['ean-13','upc-a']; const fmts=supported.filter(f=>wanted.includes(f)); bdDetector=new BarcodeDetector({formats: fmts.length?fmts:undefined}); }catch(_){ canBD=false; }
+    }
+    scanning=true; starting=false; setBtnBusy(false);
+    const tick=async()=>{
+      if(!scanning) return;
+      try{ const v=getVideo(); const codes=await bdDetector.detect(v); if(codes && codes.length){ let raw=(codes[0].rawValue??codes[0].value??'').toString(); let m=raw.match(/\d{8,}/g); const code=m?m.sort((a,b)=>b.length-a.length)[0]:raw; onDetected(code); return; } }catch(_e){}
+      rafId=requestAnimationFrame(tick);
+    };
+    if(canBD) rafId=requestAnimationFrame(tick);
+  }
+  function onDetected(code){
+    if(!code) return; const c=String(code).replace(/\D/g,'');
+    if(c.length<8) return;
+    stopCamera(false); camSheet.style.display='none';
+    const p=findProduct(c); if(p){ openProduct(p,'scanner'); } else { const inp=$('inpBarcode'); if(inp){ inp.value=c.slice(-6); inp.dispatchEvent(new Event('input',{bubbles:true})); } }
+    try{ if(navigator.vibrate) navigator.vibrate(35); }catch(_){}
+  }
+  function findProduct(code){
+    const arr=PRODUCTS||[]; const norm=s=>String(s??'').replace(/\D/g,'');
+    const c=norm(code);
+    let exact=arr.find(p=>norm(p.barcode)===c); if(exact) return exact;
+    if(c.length===13){ const c12=c.slice(1); const upc=arr.find(p=>norm(p.barcode).length===12 && norm(p.barcode)===c12); if(upc) return upc; }
+    if(c.length===12){ const ean=arr.find(p=>norm(p.barcode).length===13 && norm(p.barcode).slice(1)===c); if(ean) return ean; }
+    const suf=arr.find(p=>{const pb=norm(p.barcode); return pb.length>=8 && c.length>=8 && (pb.endsWith(c)||c.endsWith(pb));});
+    return suf||null;
+  }
+  function stopCamera(user=false){
+    try{ scanning=false; starting=false; if(rafId){ cancelAnimationFrame(rafId); rafId=null; } }catch(_){}
+    try{ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }catch(_){}
+    try{ const v=getVideo(); if(v) v.srcObject=null; }catch(_){}
+    if(user===true){ CAMERA_WAS_USER_CLOSED=true; LAST_CAM_MODE=null; }
+  }
+  function closeCam(user=true){ stopCamera(user); camSheet.style.display='none'; setBtnBusy(false); }
+  $('btnCam').addEventListener('click', ()=> startCamera(true));
+  // Popup sonrası otomatik açma çağrısı
+  window.__startCamera = (force)=>{ if(force && LAST_CAM_MODE==='android' && CAMERA_WAS_USER_CLOSED===false){ startCamera(false); } };
+})();
+
+/* ===== Kamera — iOS ===== */
+(function(){
+  let scanning=false, starting=false, rafId=null, stream=null, bdDetector=null;
+  const SHEET_ID='camSheetIOS';
+  const sheetEl=document.createElement('div'); sheetEl.id=SHEET_ID; sheetEl.innerHTML='<div id="camBoxIOS"><div id="camHeadIOS"><b>Kamera (iOS)</b><div><button id="camCloseIOS" class="btn">Kapat</button></div></div><div id="camMountIOS"><video id="camVideoIOS" autoplay playsinline muted></video></div><div id="camFootIOS"><button id="camStopIOS" class="btn">Durdur</button></div></div>'; document.body.appendChild(sheetEl);
+  const camSheet=sheetEl; const camMount=document.getElementById('camMountIOS');
+  const getVideo=()=>document.getElementById('camVideoIOS');
+  function replaceVideo(){ const old=getVideo(); const v=document.createElement('video'); v.id='camVideoIOS'; v.autoplay=true; v.playsInline=true; v.muted=true; if(old&&old.parentNode) old.parentNode.replaceChild(v,old); else camMount.appendChild(v); return v; }
+  async function pickRearDeviceId(){ try{ const devices=await navigator.mediaDevices.enumerateDevices(); const cams=devices.filter(d=>d.kind==='videoinput'); if(!cams.length) return null; let rear=cams.find(d=>/back|rear|environment/i.test(d.label)); return (rear||cams[cams.length-1]).deviceId; }catch(_){ return null; } }
+  async function getStream(){ const rear=await pickRearDeviceId(); const constraints = rear?{video:{deviceId:{exact:rear}, width:{ideal:1920}, height:{ideal:1080}, facingMode:{ideal:'environment'}}}:{video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}}; return navigator.mediaDevices.getUserMedia(constraints); }
+  async function waitForPlaying(video,timeout=1500){ if(video.readyState>=2) return; await new Promise((res)=>{ let done=false; const ok=()=>{ if(done) return; done=true; cleanup(); res(); }; const tid=setTimeout(ok,timeout); const cleanup=()=>{ video.removeEventListener('loadeddata',ok); clearTimeout(tid); }; video.addEventListener('loadeddata',ok); }); }
+  async function startIOS(manual=false){
+    if(manual===true){ LAST_CAM_MODE='ios'; CAMERA_WAS_USER_CLOSED=false; }
+    if(starting||scanning) return; starting=true; camSheet.style.display='block'; stopCamera(false); const v=replaceVideo();
+    try{ stream=await getStream(); v.srcObject=stream; await v.play().catch(()=>{}); await waitForPlaying(v,1500); }catch(err){ starting=false; camSheet.style.display='none'; alert('Kamera açılamadı (iOS): '+(err?.message||err)); return; }
+    let canBD='BarcodeDetector' in window;
+    if(canBD){ try{ const fmts=await BarcodeDetector.getSupportedFormats(); const use=fmts.filter(f=>['ean-13','upc-a'].includes(f)); bdDetector=new BarcodeDetector({formats: use.length?use:undefined}); }catch(_){ canBD=false; } }
+    scanning=true; starting=false;
+    const off=document.createElement('canvas'); const offctx=off.getContext('2d',{ willReadFrequently:true });
+    const tick=async()=>{
+      if(!scanning) return;
+      try{ const v=getVideo(); let w=v.videoWidth||640,h=v.videoHeight||480; if(w>0&&h>0){ off.width=w; off.height=h; offctx.drawImage(v,0,0,w,h); if(bdDetector){ const codes=await bdDetector.detect(off); if(codes&&codes.length){ let raw=(codes[0].rawValue??codes[0].value??'').toString(); let m=raw.match(/\d{8,}/g); const code=m?m.sort((a,b)=>b.length-a.length)[0]:raw; onDetected(code); return; } } } }catch(_){ }
+      rafId=requestAnimationFrame(tick);
+    }; rafId=requestAnimationFrame(tick);
+  }
+  function onDetected(code){
+    if(!code) return; const c=String(code).replace(/\D/g,'');
+    if(c.length<8) return;
+    stopCamera(false); camSheet.style.display='none';
+    const p=findProduct(c); if(p){ openProduct(p,'scanner'); } else { const inp=$('inpBarcode'); if(inp){ inp.value=c.slice(-6); inp.dispatchEvent(new Event('input',{bubbles:true})); } }
+    try{ if(navigator.vibrate) navigator.vibrate(35); }catch(_){}
+  }
+  function findProduct(code){
+    const arr=PRODUCTS||[]; const norm=s=>String(s??'').replace(/\D/g,'');
+    const c=norm(code);
+    let exact=arr.find(p=>norm(p.barcode)===c); if(exact) return exact;
+    if(c.length===13){ const c12=c.slice(1); const upc=arr.find(p=>norm(p.barcode).length===12 && norm(p.barcode)===c12); if(upc) return upc; }
+    if(c.length===12){ const ean=arr.find(p=>norm(p.barcode).length===13 && norm(p.barcode).slice(1)===c); if(ean) return ean; }
+    const suf=arr.find(p=>{const pb=norm(p.barcode); return pb.length>=8 && c.length>=8 && (pb.endsWith(c)||c.endsWith(pb));});
+    return suf||null;
+  }
+  function stopCamera(user=false){
+    try{ scanning=false; starting=false; if(rafId){ cancelAnimationFrame(rafId); rafId=null; } }catch(_){}
+    try{ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }catch(_){}
+    try{ const v=getVideo(); if(v) v.srcObject=null; }catch(_){}
+    if(user===true){ CAMERA_WAS_USER_CLOSED=true; LAST_CAM_MODE=null; }
+  }
+  function closeIOS(user=true){ stopCamera(user); camSheet.style.display='none'; }
+  document.getElementById('camCloseIOS').addEventListener('click', ()=> closeIOS(true));
+  document.getElementById('camStopIOS').addEventListener('click', ()=> closeIOS(true));
+  document.getElementById('btnCamIOS').addEventListener('click', ()=> startIOS(true));
+  window.__startIOS = (force)=>{ if(force && LAST_CAM_MODE==='ios' && CAMERA_WAS_USER_CLOSED===false){ startIOS(false); } };
+})();
+
+
 // === DIRECT PRINT (no preview) ===
 async function directPrint(){
   if(IS_PRINTING) return;
@@ -993,9 +1059,6 @@ $('btnPrint').onclick = directPrint;
 $('btnCartPrint').onclick = ()=>{ $('mdlCart').classList.remove('shown'); directPrint(); };
 
 })(); // IIFE end
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 <!-- Audio Unlock + Strong Beep/Haptic Helpers (non-breaking) -->
@@ -1061,9 +1124,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
     };
   }catch(e){ /* totally non-breaking */ }
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1115,9 +1175,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
     }, { once:true, passive:true });
   }catch(e){}
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1172,9 +1229,6 @@ function onFail(){
   window.addEventListener('cart:added', ()=>onCartAdd(), true);
   window.addEventListener('product:notfound', ()=>onFail(), true);
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1266,9 +1320,6 @@ window.askAdet = function(callback){
 };
   btnCancel.onclick=function(){ close(); callback(null); };
 };
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1344,9 +1395,6 @@ window.askAdet = function(callback){
 };
   btnCancel.onclick=function(){close();callback(null);};
 };
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1410,9 +1458,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
     }
   }, true);
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1489,9 +1534,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
     }
   }catch(_){}
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 
@@ -1560,9 +1602,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
     });
   }catch(_){}
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 </body>
@@ -1641,9 +1680,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
   var obs=new MutationObserver(function(){ tryPatch(); });
   obs.observe(document.documentElement||document.body,{childList:true,subtree:true});
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 <script>
@@ -1727,9 +1763,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
   });
   obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 <script>
@@ -1784,9 +1817,6 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
   var obs = new MutationObserver(install);
   obs.observe(document.documentElement||document.body, {childList:true, subtree:true});
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
 
 <script>
@@ -1899,7 +1929,4 @@ try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull
   const obs = new MutationObserver(ensureInlineControls);
   obs.observe(document.documentElement || document.body, { childList:true, subtree:true });
 })();
-
-// Başlangıç odağı
-try{ document.addEventListener('DOMContentLoaded', ()=>{ try{ inpFull && inpFull.focus(); }catch(_){} }); }catch(_){}
 </script>
