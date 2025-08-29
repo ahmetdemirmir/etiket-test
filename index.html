@@ -197,6 +197,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
     <div class="control" style="margin-top:8px">
       <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
+<small id="hintFullToggle" class="hint">Bu mod <b>açıkken</b> Son 6 ile arama geçici olarak pasiftir. Son 6 ile aramak için bu butona <b>yeniden basın</b> (modu kapatın).</small>
 <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
 <input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
@@ -356,6 +357,19 @@ let FULL_BUF = "";
 let FULL_TID = null;
 
 function __dk_nd(s){ return String(s??'').replace(/\D/g,''); }
+// STRICT last-8 finder for FULL mode
+function __dk_findByLast8(code){
+  const arr = PRODUCTS || [];
+  const c = __dk_nd(code);
+  if(!c || c.length < 8) return null;
+  const last8 = c.slice(-8);
+  for(let i=0;i<arr.length;i++){
+    const pb = __dk_nd(arr[i].barcode);
+    if(pb && pb.slice(-8) === last8) return arr[i];
+  }
+  return null;
+}
+
 function __dk_findStrict(code){
   const arr = PRODUCTS || [];
   const c = __dk_nd(code);
@@ -386,11 +400,30 @@ function __dk_showNF(title, code, msg){
   }
 }
 
+
 function __dk_submit(val){
-  const raw = String(val||'').replace(/[\r\n]+/g,'');
+  const raw = String(val||'').replace(/[
+]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
   if(inpFull){ try{ inpFull.value=''; }catch(_){ } }
+  // Guard: data
+  if(!Array.isArray(PRODUCTS) || PRODUCTS.length===0){
+    __dk_showNF('Veri Yüklenmedi', code, 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ');
+    return;
+  }
+  if(!code || code.length<8) return;
+  // === LAST-8 exact match ===
+  const p = __dk_findByLast8(code);
+  if(p){
+    try{ inpFull && inpFull.blur(); }catch(_){}
+    openProduct(p,'terminal'); // behavior mirrors son-6 successful enter -> popup
+    // FULL mode stays ON; staff can keep scanning without touching Son 6
+  }else{
+    __dk_showNF('Barkod Bulunamadı', code, 'Okutulan: ');
+  }
+}
+catch(_){ } }
   if(!Array.isArray(PRODUCTS) || PRODUCTS.length===0){
     __dk_showNF('Veri Yüklenmedi', code, 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ');
     return;
