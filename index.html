@@ -159,37 +159,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
-
-<style id="dk-mobile-modal-fix">
-  /* === DK CSS-ONLY MOBILE MODAL LAYERING FIX === */
-  /* Neutralize stacking-context traps */
-  #mdlSearch, #mdlProduct {
-    transform: none !important;
-    -webkit-transform: none !important;
-    filter: none !important;
-    contain: none !important;
-    backface-visibility: hidden !important;
-    perspective: none !important;
-  }
-  /* Force modals above all other layers on mobile & desktop */
-  #mdlSearch.shown, #mdlProduct.shown {
-    position: fixed !important;
-    inset: 0 !important; /* top/right/bottom/left */
-    z-index: 2147483647 !important;
-    pointer-events: auto !important;
-  }
-  /* Ensure modal content itself also sits on top and is scrollable */
-  #mdlSearch.shown .box, #mdlProduct.shown .box {
-    position: relative !important;
-    z-index: 2147483647 !important;
-    max-height: calc(100dvh - 24px) !important;
-    overflow: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  /* Background remains interactive only when modal hidden; keep safe defaults */
-  body.modal-open { overflow: hidden !important; }
-</style>
-
 </head>
 <body>
 
@@ -361,7 +330,7 @@ const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maxi
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
 
-const refocusAfterAction=(clear=false)=>{ if(IS_DESKTOP){ if(clear){ inpBarcode.value=''; inpName.value=''; } inpBarcode.focus(); inpBarcode.select(); } };
+const refocusAfterAction=(clear=false)=>{ try{   if(clear){ try{ inpBarcode.value=''; }catch(_){ } try{ inpName.value=''; }catch(_){ } }   if(typeof inpBarcode!=='undefined' && inpBarcode){     try{ inpBarcode.focus({preventScroll:true}); }catch(_){ inpBarcode.focus(); }     try{ inpBarcode.select(); }catch(_){ }   } }catch(_){ }};
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
@@ -1741,6 +1710,45 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
+
+
+/* === DK: Sticky focus for Son 6 alanı (mobile + desktop) === */
+(function(){
+  const d=document, $=id=>d.getElementById(id);
+  const el = $('inpBarcode'); if(!el) return;
+  let STICKY_LAST6=false;
+
+  el.addEventListener('focus', ()=>{ STICKY_LAST6=true; }, true);
+  el.addEventListener('blur', (e)=>{
+    // Eğer kullanıcı başka bir giriş alanına tıklamadıysa, tekrar odakla
+    setTimeout(()=>{
+      if(STICKY_LAST6 && d.activeElement!==el){
+        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
+        try{ el.select(); }catch(_){}
+      }
+    }, 50);
+  }, true);
+
+  // Kullanıcı başka bir "giriş" alanına bilerek tıkladığında sticky'yi kaldır
+  d.addEventListener('pointerdown', (ev)=>{
+    const t = ev.target;
+    if(!t) return;
+    const tag = (t.tagName||'').toLowerCase();
+    const isInput = tag==='input' || tag==='textarea' || tag==='select' || t.isContentEditable;
+    if(isInput && t!==el){ STICKY_LAST6=false; }
+  }, true);
+
+  // Arama kapanınca tekrar odak
+  try{
+    const btnClose=$('btnSearchClose');
+    if(btnClose){
+      btnClose.addEventListener('click', ()=>{
+        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
+        try{ el.select(); }catch(_){}
+      });
+    }
+  }catch(_){}
+})();
 
 </body>
 </html>
