@@ -198,8 +198,9 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     <div class="control" style="margin-top:8px">
       <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
 <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
-<input id="inpBarcode" class="input" type="text" placeholder="Barkod" autocomplete="off" />
+<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="\d*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
+<input id="inpBarcodeExact" class="input" type="tel" placeholder="Barkod (tam eşleşme)" autocomplete="off" / inputmode="numeric" pattern="\\d*">
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
       <button id="btnFD10" class="btn neutral"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Günde Değişenler</button>
@@ -556,19 +557,29 @@ function showResults(title,arr){ $('mFilter').textContent=title; $('mCount').tex
   $('mdlSearch').classList.add('shown');
 }
 function filterByName(q){ const s=q.trim().toLowerCase(); if(s.length<2){ $('mdlSearch').classList.remove('shown'); return; } const res=PRODUCTS.filter(p=>p.name.toLowerCase().includes(s)); if(res.length) showResults(`Ad: "${q}"`,res); else $('mdlSearch').classList.remove('shown'); }
-function filterByLast6(v){
+function filterByLast6(v){ const t=v.replace(/\D/g,''); if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; }
+
+function filterByBarcodeExact(v){
   const t = String(v||'').replace(/\D/g,'');
   if(t.length<2){ $('mdlSearch').classList.remove('shown'); return; }
   const res = (PRODUCTS||[]).filter(p => String(parseBarcode(p.barcode)) === t);
   if(res.length){
     $('mdlSearch').classList.add('shown');
-    showResults(`Barkod: ${t}`, res);
-  } else {
+    showResults(`Barkod (tam): ${t}`, res);
+  }else{
     $('mdlSearch').classList.remove('shown');
   }
 }
+ const res=PRODUCTS.filter(p=>p.barcode.endsWith(t)); if(res.length) showResults(`Barkod son: ${t}`,res); else $('mdlSearch').classList.remove('shown'); }
 inpName.addEventListener('input', ()=>{ filterByName(inpName.value); });
 inpBarcode.addEventListener('input', ()=>{ filterByLast6(inpBarcode.value); });
+
+if (typeof inpBarcodeExact !== 'undefined' && inpBarcodeExact){
+  inpBarcodeExact.addEventListener('input', ()=>{ filterByBarcodeExact(inpBarcodeExact.value); });
+  inpBarcodeExact.addEventListener('change', ()=>{ filterByBarcodeExact(inpBarcodeExact.value); });
+  inpBarcodeExact.addEventListener('keyup', (e)=>{ if(e.key==='Enter'){ filterByBarcodeExact(inpBarcodeExact.value); } });
+}
+
 ;['inpName','inpBarcode'].forEach(id=>$(id).addEventListener('keydown',e=>{ if(e.key==='Enter'){ const first=$('mList')?.firstElementChild; if(first){ first.click(); } }}));
 $('btnSearchClose').addEventListener('click', ()=> $('mdlSearch').classList.remove('shown'));
 
