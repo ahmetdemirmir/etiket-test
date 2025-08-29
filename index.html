@@ -209,7 +209,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     <div class="control" style="margin-top:8px">
       <button id="btnFull" class="btn neutral"><i class="fa-solid fa-barcode"></i> Barkod ile Arama</button>
 <input id="inpFull" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
-<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/><button id="btnKbToggle" class="btn neutral" style="margin-left:8px;white-space:nowrap;">Klavye Açık</button>
+<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
       <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
       <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
       <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
@@ -1723,41 +1723,18 @@ window.askAdet = function(callback){
 </div></div>
 
 
+
 <script id="dk-kb-toggle-and-buffer">
 (function(){
   const d=document, $=id=>d.getElementById(id);
-  const el = $('inpBarcode'); const btn = $('btnKbToggle');
-  if(!el || !btn) return;
+  const el = $('inpBarcode');
+  if(!el) return;
 
-  const KB_KEY='dk_kb_mode'; // 'on' | 'off'
-  let STICKY=true;           // Son 6 alanı odakta tutma
-  let BUF=''; let T=null;    // Global digit buffer (debounced)
+  // Varsayılan: numeric inputmode; blur kullanılmaz
+  try{ el.setAttribute('inputmode','numeric'); }catch(_){}
 
-  function label(mode){ return mode==='off' ? 'Klavye Kapalı' : 'Klavye Açık'; }
-
-  function applyKbMode(mode){
-    try{
-      if(mode==='off'){
-        el.setAttribute('inputmode','none');
-        el.classList.add('kb-off');
-      }else{
-        el.setAttribute('inputmode','numeric');
-        el.classList.remove('kb-off');
-      }
-      btn.textContent = label(mode);
-      localStorage.setItem(KB_KEY, mode);
-    }catch(_){}
-  }
-
-  btn.addEventListener('click', ()=>{
-    const cur = (localStorage.getItem(KB_KEY)||'on');
-    applyKbMode(cur==='on' ? 'off' : 'on');
-    try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
-    try{ el.select(); }catch(_){}
-  });
-
-  applyKbMode(localStorage.getItem(KB_KEY) || 'on');
-
+  // Sticky focus: başka inputa tıklanana kadar orada kal
+  let STICKY=true;
   el.addEventListener('focus', ()=>{ STICKY=true; }, true);
   d.addEventListener('pointerdown', (ev)=>{
     const t=ev.target, tag=(t?.tagName||'').toLowerCase();
@@ -1773,22 +1750,31 @@ window.askAdet = function(callback){
     },50);
   }, true);
 
+  // Global rakam yakalama (debounced) — hem manuel SON6 hem de FULL barkod akışı için
+  let BUF=''; let T=null;
   d.addEventListener('keydown', (e)=>{
-    if (window.FULL_ACTIVE) return;
     const k=e.key;
     if(!/^[0-9]$/.test(k)) return;
-    if(d.activeElement!==el && !STICKY) return;
 
-    BUF += k; if(BUF.length>32) BUF = BUF.slice(-32);
+    // SON6: inpBarcode odakta ise veya sticky aktifse dinle
+    const listenSon6 = (d.activeElement===el || STICKY);
+
+    // BARKOD İLE ARAMA: FULL_ACTIVE açık olduğunda da dinle
+    const listenFull = (window.FULL_ACTIVE===true);
+
+    if(!listenSon6 && !listenFull) return;
+
+    BUF += k; if(BUF.length>64) BUF=BUF.slice(-64);
     if(T) clearTimeout(T);
     T = setTimeout(()=>{
-      const t = BUF.replace(/\\D/g,'');
+      const t = BUF.replace(/\D/g,'');
       if(t.length>=2){
         try{ filterByLast6(t.slice(-6)); }catch(_){}
       }
     }, 100);
   }, true);
 
+  // Arama modalı kapanınca tekrar odak
   try{
     const btnClose=$('btnSearchClose');
     if(btnClose){
@@ -1801,6 +1787,7 @@ window.askAdet = function(callback){
   }catch(_){}
 })();
 </script>
+
 
 </body>
 </html>
