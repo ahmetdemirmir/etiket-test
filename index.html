@@ -179,6 +179,18 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 #mdlProduct .box{max-height:78vh !important; overflow:auto !important; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;}
 #mdlProduct .previewLabel{display:none !important;}
 </style>
+<style>
+/* === DK Patch v1.1 — Full-viewport modal safe for on-screen keyboard === */
+:root{ --vh: 1vh; }
+#mdlProduct .box{
+  position: relative;
+  height: calc(var(--vh, 1vh) * 100 - 24px) !important; /* 12px top+bottom padding buffer */
+  max-height: none !important;
+  overflow:auto !important;
+  margin: 12px auto !important;
+  inset: 0;
+}
+</style>
 </head>
 <body>
 
@@ -1822,6 +1834,36 @@ window.askAdet = function(callback){
         if (bx){ bx.style.maxHeight='78vh'; bx.style.overflow='auto'; }
       }catch(e){}
     }, { once:true });
+  }
+})();
+</script>
+
+
+<script>
+/* === DK Patch v1.1 — Keyboard-safe viewport sizing === */
+(function(){
+  function setVH(){
+    try{
+      var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
+    }catch(e){}
+  }
+  setVH();
+  window.addEventListener('resize', setVH);
+  if (window.visualViewport){
+    window.visualViewport.addEventListener('resize', setVH);
+    window.visualViewport.addEventListener('scroll', setVH);
+  }
+
+  // Ensure blur to avoid accidental keyboard covering when not needed
+  if (typeof window.openProduct === 'function'){
+    const __open2 = window.openProduct;
+    window.openProduct = function(p, source){
+      // Blur any focused input to close keyboard unless qty custom field is used
+      try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
+      __open2(p, source);
+      setTimeout(setVH, 50);
+    };
   }
 })();
 </script>
