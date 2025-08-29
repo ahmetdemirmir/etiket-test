@@ -387,17 +387,6 @@ function __dk_showNF(title, code, msg){
 }
 
 function __dk_submit(val){
-/* === DK: FULL → Son-6 pipeline (early delegate) === */
-try{
-  const __raw = String(arguments[0] ?? val ?? '');
-  const __code = parseBarcode(__raw);
-  if(Array.isArray(PRODUCTS) && PRODUCTS.length && __code && __code.length>=6){
-    // Son-6 arama ile *aynı davranış* için doğrudan filterByLast6
-    filterByLast6(__code.slice(-6));
-    return;
-  }
-}catch(__e){ /* no-op */ }
-
   const raw = String(val||'').replace(/[\r\n]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
@@ -452,6 +441,37 @@ if(inpFull){
       _deb = setTimeout(()=> __dk_submit(v), 10);
     }
   });
+
+// === DK: FULL focus & input/paste compatibility (mobile scanners) ===
+if(inpFull){
+  // Fokusa geçince FULL açık say
+  inpFull.addEventListener('focus', ()=>{
+    try{ FULL_ACTIVE = true; }catch(_){}
+    try{ btnFull && btnFull.classList.add('primary'); }catch(_){}
+  }, true);
+
+  // Bazı tarayıcılar keydown üretmez; input güncellenirse buffer'a al
+  inpFull.addEventListener('input', ()=>{
+    try{
+      if(!FULL_ACTIVE) return;
+      FULL_BUF = String(inpFull.value||'');
+      __dk_queueSubmit();
+    }catch(_){}
+  });
+
+  // Barkodu panodan yapıştırma desteği
+  inpFull.addEventListener('paste', (e)=>{
+    try{
+      const txt = (e.clipboardData||window.clipboardData).getData('text') || '';
+      if(!txt) return;
+      e.preventDefault();
+      FULL_BUF = (FULL_BUF + String(txt)).replace(/[^0-9]/g,'');
+      if(inpFull){ try{ inpFull.value = FULL_BUF; }catch(_){ } }
+      __dk_queueSubmit();
+    }catch(_){}
+  });
+}
+
 }
 
 // Global capture (capture phase) — FULL açıkken tüm rakam/Enter son-6'ya düşmez
