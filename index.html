@@ -142,6 +142,16 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 #mdlProduct .price{ font-size:30px; }
 .modal .box{ max-height:82vh; overflow:auto; }
 
+
+/* === DK Patch v2: Compact modal & controls cleanup === */
+#mdlProduct .box{ position: relative; }
+#mdlProduct .btn-cancel-topright{
+  position:absolute; top:8px; right:10px;
+  padding:8px 12px; font-weight:700;
+  z-index: 3;
+}
+#mdlProduct ._dkHide{ display:none !important; }
+
 </style>
 <style>
 /* 🔊 Sesi Etkinleştir toast */
@@ -304,6 +314,82 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 <script>
 (function(){
 
+
+
+/* === DK Patch v2.1: Safer modal compactor (presets stay visible) === */
+(function(){
+  const compactOnce = () => {
+    try{
+      const root = document.getElementById('mdlProduct');
+      if(!root) return;
+      const box = root.querySelector('.box') || root;
+
+      // Move İptal to top-right (ensure visible)
+      let cancelBtn = Array.from(root.querySelectorAll('button'))
+        .find(b => /iptal/i.test((b.textContent||'') + (b.value||'')));
+      if(cancelBtn){
+        cancelBtn.classList.add('btn-cancel-topright');
+        if(box && cancelBtn.parentElement !== box){
+          box.appendChild(cancelBtn);
+        }
+        cancelBtn.classList.remove('_dkHide');
+        cancelBtn.style.display = '';
+      }
+
+      // Hide ONLY manual qty input and its immediate '+' and 'Onayla' siblings
+      const inputs = Array.from(root.querySelectorAll('input')).filter(inp => {
+        const t = (inp.type||'text').toLowerCase();
+        return t === 'number' || t === 'tel' || t === 'text';
+      });
+      inputs.forEach(inp => {
+        if(getComputedStyle(inp).display === 'none' || inp.type === 'hidden') return;
+        const parent = inp.parentElement;
+        if(!parent) return;
+        const btns = Array.from(parent.querySelectorAll('button'));
+        const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
+        const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
+        const cw = inp.clientWidth || 0;
+        const looksQty = (cw > 0 && cw < 140) && (hasPlus || hasOnayla);
+        if(looksQty){
+          inp.style.display = 'none';
+          btns.forEach(b=>{
+            if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
+              b.style.display = 'none';
+              b.classList.add('_dkHide');
+            }
+          });
+        }
+      });
+
+      // Hide barcode visuals ONLY (do not hide parents)
+      Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
+        const cls = (el.className && (el.className.baseVal || el.className)) || '';
+        if(/barcode|ean|code128|ean13/i.test(cls)){
+          el.style.display = 'none';
+          el.classList.add('_dkHide');
+        }
+      });
+
+      // Fit modal to viewport
+      const bx = root.querySelector('.box');
+      if(bx){
+        bx.style.maxHeight = '80vh';
+        bx.style.overflow = 'auto';
+      }
+    }catch(e){ /* no-op */ }
+  };
+
+  try{
+    const target = document.getElementById('mdlProduct');
+    if(target){
+      const mo = new MutationObserver(()=>{ setTimeout(compactOnce, 30); });
+      mo.observe(target, {attributes:true, childList:true, subtree:true});
+    }
+  }catch(_){}
+
+  document.addEventListener('click', ()=> setTimeout(compactOnce, 50));
+  setTimeout(compactOnce, 150);
+})();
 /* === DK Patch Guard: Hide legacy full-barcode controls if present === */
 try{
   const _btnFull = document.getElementById('btnFull');
@@ -342,7 +428,7 @@ const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maxi
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
 
-const refocusAfterAction = (clear=false)=>{  try{    const el = $('inpBarcode');    if(!el) return;    if(clear){ el.value=''; }    setTimeout(()=>{      try{ el.focus(); if(el.select) el.select(); }catch(_){ }    }, 120);  }catch(_){ }};
+window.refocusAfterAction = function(){  try{    var el = document.getElementById('inpBarcode');    if(!el) return;    el.value = '';    setTimeout(function(){ try{ el.focus(); if(el.select) el.select(); }catch(e){} }, 80);  }catch(_){ }};
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
@@ -1696,6 +1782,32 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
+
+
+<script>
+(function(){
+  function _focusLast6(){
+    try{
+      var el = document.getElementById('inpBarcode');
+      if(!el) return;
+      el.value = '';
+      setTimeout(function(){ try{ el.focus(); if(el.select) el.select(); }catch(e){} }, 100);
+    }catch(_){}
+  }
+  document.addEventListener('click', function(e){
+    try{
+      var btn = e.target.closest && e.target.closest('button');
+      if(!btn) return;
+      var modal = document.getElementById('mdlProduct');
+      if(!modal) return;
+      // If a button inside modal is clicked (qty preset or cancel), plan to refocus after close
+      if(modal.contains(btn)){
+        setTimeout(_focusLast6, 150);
+      }
+    }catch(_){}
+  }, true);
+})();
+</script>
 
 </body>
 </html>
