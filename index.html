@@ -152,7 +152,17 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 }
 #mdlProduct ._dkHide{ display:none !important; }
 
-</style>
+
+/* === DK Patch v2.2: Stronger top-right cancel & keyboard UX === */
+#mdlProduct .box{ position:relative; }
+#mdlProduct .btn-cancel-topright{
+  position:absolute !important;
+  top:8px; right:10px;
+  padding:8px 12px; font-weight:700;
+  z-index: 1001;
+}
+
+\1
 <style>
 /* 🔊 Sesi Etkinleştir toast */
 #soundUnlockToast{
@@ -316,7 +326,121 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
 
 
-/* === DK Patch v2.1: Safer modal compactor (presets stay visible) === */
+
+
+/* === DK Patch v2.2: Modal UX + keyboard control === */
+(function(){
+  // helpers
+  const $id = (x)=>document.getElementById(x);
+  const hideSoftKeyboard = ()=>{
+    try{
+      if(document.activeElement){ document.activeElement.blur(); }
+      const last6 = $id('inpBarcode');
+      if(last6){ last6.blur(); }
+    }catch(_){}
+  };
+  const showSoftKeyboard = ()=>{
+    try{
+      const el = $id('inpBarcode');
+      if(!el) return;
+      setTimeout(()=>{
+        try{
+          el.focus();
+          // Select to nudge soft keyboard on some devices
+          if(el.select) el.select();
+          // Tap hint
+          el.click();
+        }catch(_){}
+      }, 120);
+    }catch(_){}
+  };
+
+  // Strengthen refocusAfterAction hook (if defined earlier, we wrap it)
+  try{
+    const _oldRefocus = window.refocusAfterAction;
+    window.refocusAfterAction = function(clear=false){
+      try{ if(typeof _oldRefocus === 'function'){ _oldRefocus(clear); } }catch(_){}
+      // After closing modal and returning to last-6 -> show keyboard
+      showSoftKeyboard();
+    };
+  }catch(_){}
+
+  // Observe modal to:
+  //  - move İptal to top-right
+  //  - hide manual qty input + '+' + 'Onayla' in same mini-row
+  //  - hide barcode visuals only
+  //  - when modal becomes visible -> hide keyboard
+  const compactOnce = () => {
+    const root = $id('mdlProduct');
+    if(!root) return;
+    const style = getComputedStyle(root);
+    const visible = style.display !== 'none' && style.visibility !== 'hidden' && root.offsetParent !== null;
+
+    const box = root.querySelector('.box') || root;
+
+    // Move İptal
+    let cancelBtn = Array.from(root.querySelectorAll('button'))
+      .find(b => /iptal/i.test(((b.textContent||'') + (b.value||'')).trim()));
+    if(cancelBtn){
+      cancelBtn.classList.add('btn-cancel-topright');
+      if(box && cancelBtn.parentElement !== box){
+        box.appendChild(cancelBtn);
+      }
+      cancelBtn.style.display = '';
+    }
+
+    // Hide ONLY manual qty input group (keep preset buttons)
+    Array.from(root.querySelectorAll('input')).forEach(inp=>{
+      const t = (inp.type||'text').toLowerCase();
+      if(['number','tel','text'].includes(t) and inp.type!=='hidden'){
+        const parent = inp.parentElement;
+        if(!parent) return;
+        const btns = Array.from(parent.querySelectorAll('button'));
+        const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
+        const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
+        const cw = inp.clientWidth || 0;
+        const looksQty = (cw>0 && cw<160) && (hasPlus || hasOnayla);
+        if(looksQty){
+          inp.style.display='none';
+          btns.forEach(b=>{
+            if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
+              b.style.display='none';
+            }
+          });
+        }
+      }
+    });
+
+    // Hide barcode visuals ONLY
+    Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
+      const cls = (el.className && (el.className.baseVal || el.className)) || '';
+      if(/barcode|ean|code128|ean13/i.test(cls)){
+        el.style.display = 'none';
+      }
+    });
+
+    // Modal visible? then hide keyboard now.
+    if(visible){ hideSoftKeyboard(); }
+  };
+
+  try{
+    const target = $id('mdlProduct');
+    if(target){
+      const mo = new MutationObserver(()=>{ setTimeout(compactOnce, 20); });
+      mo.observe(target, {attributes:true, childList:true, subtree:true});
+    }
+  }catch(_){}
+
+  // Also run after clicks that may open/close modal
+  document.addEventListener('click', ()=> setTimeout(compactOnce, 40));
+  // One initial pass
+  setTimeout(compactOnce, 150);
+
+  // Expose helpers for other code if needed
+  window._dkHideKeyboard = hideSoftKeyboard;
+  window._dkShowKeyboard = showSoftKeyboard;
+})();
+/* === DK Patch v2.2: Cancel top-right + Keyboard auto-hide/show === */
 (function(){
   const compactOnce = () => {
     try{
@@ -324,7 +448,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       if(!root) return;
       const box = root.querySelector('.box') || root;
 
-      // Move İptal to top-right (ensure visible)
+      // Move İptal to top-right
       let cancelBtn = Array.from(root.querySelectorAll('button'))
         .find(b => /iptal/i.test((b.textContent||'') + (b.value||'')));
       if(cancelBtn){
@@ -332,11 +456,13 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
         if(box && cancelBtn.parentElement !== box){
           box.appendChild(cancelBtn);
         }
-        cancelBtn.classList.remove('_dkHide');
+        cancelBtn.style.position = 'absolute';
+        cancelBtn.style.top = '8px';
+        cancelBtn.style.right = '10px';
         cancelBtn.style.display = '';
       }
 
-      // Hide ONLY manual qty input and its immediate '+' and 'Onayla' siblings
+      // Hide manual qty input + siblings '+' and 'Onayla'
       const inputs = Array.from(root.querySelectorAll('input')).filter(inp => {
         const t = (inp.type||'text').toLowerCase();
         return t === 'number' || t === 'tel' || t === 'text';
@@ -355,28 +481,32 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
           btns.forEach(b=>{
             if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
               b.style.display = 'none';
-              b.classList.add('_dkHide');
             }
           });
         }
       });
 
-      // Hide barcode visuals ONLY (do not hide parents)
+      // Hide barcode visuals only
       Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
         const cls = (el.className && (el.className.baseVal || el.className)) || '';
         if(/barcode|ean|code128|ean13/i.test(cls)){
           el.style.display = 'none';
-          el.classList.add('_dkHide');
         }
       });
 
-      // Fit modal to viewport
+      // Fit modal
       const bx = root.querySelector('.box');
       if(bx){
         bx.style.maxHeight = '80vh';
         bx.style.overflow = 'auto';
       }
-    }catch(e){ /* no-op */ }
+
+      // Hide keyboard when modal opens
+      const active = document.activeElement;
+      if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')){
+        active.blur();
+      }
+    }catch(e){}
   };
 
   try{
@@ -389,6 +519,25 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
   document.addEventListener('click', ()=> setTimeout(compactOnce, 50));
   setTimeout(compactOnce, 150);
+
+  // Override refocusAfterAction to also show keyboard
+  const oldRefocus = window.refocusAfterAction;
+  window.refocusAfterAction = (clear=false)=>{
+    try{
+      const el = document.getElementById('inpBarcode');
+      if(!el) return;
+      if(clear){ el.value=''; }
+      setTimeout(()=>{
+        try{
+          el.focus();
+          if(el.select) el.select();
+          // Force keyboard open (mobile hint)
+          const evt = new Event('touchstart');
+          el.dispatchEvent(evt);
+        }catch(_){}
+      }, 150);
+    }catch(_){}
+  };
 })();
 /* === DK Patch Guard: Hide legacy full-barcode controls if present === */
 try{
