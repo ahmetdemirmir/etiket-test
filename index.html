@@ -153,392 +153,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 #mdlProduct ._dkHide{ display:none !important; }
 
 
-/* === DK Patch v2.2: Stronger top-right cancel & keyboard UX === */
-#mdlProduct .box{ position:relative; }
-#mdlProduct .btn-cancel-topright{
-  position:absolute !important;
-  top:8px; right:10px;
-  padding:8px 12px; font-weight:700;
-  z-index: 1001;
-}
-
-\1
-<style>
-/* 🔊 Sesi Etkinleştir toast */
-#soundUnlockToast{
-  position:fixed; z-index:2147483647; right:16px; bottom:16px;
-  background:rgba(20,20,20,.92); color:#fff; padding:14px 16px;
-  border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.35);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; font-size:14px;
-  display:flex; align-items:center; gap:10px;
-}
-#soundUnlockToast button{
-  appearance:none; border:0; border-radius:10px; padding:8px 12px;
-  background:#00c853; color:#fff; font-weight:600; cursor:pointer;
-}
-#soundUnlockToast.hidden{ display:none; }
-</style>
-
-<style id="dk-modal-boost">
-/* Modal mutlaka üstte kalsın (mobil PDA örtüşmelerine karşı) */
-.modal{ z-index: 2147483000 !important; }
-</style>
-
-</head>
-<body>
-
-<!-- 🔊 Preloaded Audio Files -->
-<audio id="sndMatch" src="sounds/match.mp3" preload="auto"></audio>
-<audio id="sndCart"  src="sounds/cart.mp3"  preload="auto"></audio>
-<audio id="sndFail"  src="sounds/fail.mp3"  preload="auto"></audio>
-
-
-<!-- 🔊 Preloaded Audio Files -->
-<audio id="sndMatch" src="sounds/match.mp3" preload="auto"></audio>
-<audio id="sndCart"  src="sounds/cart.mp3"  preload="auto"></audio>
-<audio id="sndFail"  src="sounds/fail.mp3"  preload="auto"></audio>
-
-<header>
-  <img src="logo.png" alt="Logo" />
-  <h1>Fiyat Gör Etiket Bas</h1>
-</header>
-
-<div class="wrap">
-  <div class="card">
-    <div class="control" style="justify-content:space-between">
-      <div class="control">
-        <span id="badgeData" class="badge"><i class="fa-solid fa-database"></i> Veri yüklenmedi</span>
-        <label class="switch" style="display:inline-flex;align-items:center;gap:8px">
-          <input id="toggleFx" type="checkbox" checked /> <span>Ses/Titreşim</span>
-        </label>
-      </div>
-      <div class="control">
-        <button id="btnCart" class="btn neutral" style="font-size:16px"><i class="fa-solid fa-basket-shopping"></i> Sepet: <span id="cartCount">0</span></button>
-        <button id="btnPrint" class="btn success" style="font-size:16px"><i class="fa-solid fa-print"></i> Yazdır</button>
-        <button id="btnCam" class="btn primary" style="font-size:16px"><i class="fa-solid fa-camera"></i> Kamera Aç</button>
-        <button id="btnCamIOS" class="btn neutral" style="font-size:16px"><i class="fa-brands fa-apple"></i> Kamera Aç (iOS)</button>
-      </div>
-    </div>
-
-    <div class="control" style="margin-top:8px">
-<input id="inpFull" style="display:none" class="input" type="text" placeholder="Barkod ile arama (okutun)" autocomplete="off" inputmode="none" enterkeyhint="go"/>
-<input id="inpBarcode" class="input" type="tel" placeholder="Barkod SON 6 hane" autocomplete="off" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search"/>
-      <input id="inpName" class="input" type="text" placeholder="Ürün adı" autocomplete="off" />
-      <input id="fileExcel" type="file" accept=".xlsx,.xls,.csv" />
-      <button id="btnFetchSheets" class="btn primary"><i class="fa-solid fa-cloud-download"></i> Google Sheets'ten Çek</button>
-      <button id="btnFD10" class="btn neutral"><i class="fa-solid fa-clock-rotate-left"></i> Son 10 Günde Değişenler</button>
-      <button id="btnSaveCart" class="btn neutral"><i class="fa-solid fa-file-arrow-down"></i> Sepeti Kaydet</button>
-      <button id="btnLoadCart" class="btn neutral"><i class="fa-solid fa-file-arrow-up"></i> Sepeti Yükle</button>
-      <input id="fileCart" type="file" accept=".json" style="display:none" />
-    </div>
-    <small class="hint">Excel yükleyin, barkodun son 6 hanesiyle veya ürün adıyla arayın; <b>KAMERA</b> ile okutunca ürün popup'ı direkt açılır.</small>
-  </div>
-</div>
-
-<!-- Arama sonuçları -->
-<div id="mdlSearch" class="modal"><div class="box">
-  <h3>Filtrelenen Ürünler</h3>
-  <div class="mini">Filtre: <span id="mFilter"></span> — <span id="mCount">0</span> sonuç</div>
-  <div id="mList" class="list"></div>
-  <div class="actions" style="justify-content:flex-end"><button id="btnSearchClose" class="btn">Kapat</button></div>
-</div></div>
-
-<!-- Ürün popup -->
-<div id="mdlProduct" class="modal"><div class="box">
-  <h3 id="mName">Ürün Adı</h3>
-  <div class="price" id="mPrice">₺0,00</div>
-  <div class="mini barcodeBig">Barkod: <span id="mBarcode"></span></div>
-  <div class="mini" id="mDateRow">Fiyat Değişiklik Tarihi: <span id="mDate"></span></div>
-  <div id="mOld" class="warn" style="display:none"><i class="fa-solid fa-triangle-exclamation"></i> Bu ürünün fiyatı <b>12 aydan eski</b>! Yöneticinize bilgi verin.</div>
-
-  <div class="previewLabel" id="previewLabel" style="display:none">
-    <img id="previewBarcode" alt="etiket" />
-    <div>
-      <div class="pname" id="previewName">—</div>
-      <div class="mini" id="previewPrice">—</div>
-    </div>
-  </div>
-
-  <div class="actions">
-
-  <button id="btnQty1" class="btn qty-btn one c-1" data-qty="1">1 Adet</button>
-  <button class="btn qty-btn c-2"  data-qty="2">2 Adet</button>
-  <button class="btn qty-btn c-3"  data-qty="3">3 Adet</button>
-  <button class="btn qty-btn c-4"  data-qty="4">4 Adet</button>
-  <button class="btn qty-btn c-5"  data-qty="5">5 Adet</button>
-  <button class="btn qty-btn c-6"  data-qty="6">6 Adet</button>
-  <button class="btn qty-btn c-7"  data-qty="7">7 Adet</button>
-  <button class="btn qty-btn c-8"  data-qty="8">8 Adet</button>
-  <button class="btn qty-btn c-9"  data-qty="9">9 Adet</button>
-  <button class="btn qty-btn c-10" data-qty="10">10 Adet</button>
-  <button class="btn danger" id="btnCancel">İptal</button>
-  <button class="btn" id="btnCustom" style="display:none" aria-hidden="true" tabindex="-1">Özel</button>
-
-</div></div>
-</div></div>
-
-<!-- Sepet modal -->
-<div id="mdlCart" class="modal"><div class="box">
-  <h3>Sepet</h3>
-  <div class="cartFilters">
-    <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="chkOnlyOld"/> Sadece eski fiyatlı</label>
-  </div>
-  <div id="cartList" class="list"></div>
-  <div class="cartTotal mini">Toplam: <span id="cartTotalLbl">0</span> etiket</div>
-  <div class="actions" style="justify-content:space-between">
-    <button id="btnCartClear" class="btn danger"><i class="fa-solid fa-trash"></i> Hepsini Temizle</button>
-    <div>
-      <button id="btnCartClose" class="btn">Kapat</button>
-      <button id="btnCartPrint" class="btn success"><i class="fa-solid fa-print"></i> Yazdır (PDF)</button>
-    </div>
-  </div>
-</div></div>
-
-<!-- Yazdır öncesi uyarı -->
-<div id="mdlOldWarn" class="modal"><div class="box">
-  <h3>Eski Fiyat Uyarısı</h3>
-  <div class="warn"><i class="fa-solid fa-triangle-exclamation"></i> Listenizde <b>eski fiyatlı</b> ürünler var. Lütfen yöneticinize <b>Eski Fiyatlılar PDF</b>'ini gönderin.</div>
-  <div class="confirmRow"><button id="btnOldCancel" class="btn">Vazgeç</button><button id="btnOldContinue" class="btn success">Devam Et</button></div>
-</div></div>
-
-<!-- PDF önizleme -->
-<div id="mdlPdf" class="modal"><div class="box pdfBox">
-  <h3>Önizleme — Etiketler</h3>
-  <iframe id="pdfFrame" class="pdfFrame"></iframe>
-  <div class="actions" style="justify-content:flex-end"><button id="btnPdfCancel" class="btn">İptal</button><button id="btnPdfSave" class="btn success">Kaydet ve Devam Et</button></div>
-</div></div>
-
-<div id="mdlPdfOld" class="modal"><div class="box pdfBox">
-  <h3>Önizleme — Eski Fiyatlı Ürünler</h3>
-  <iframe id="pdfOldFrame" class="pdfFrame"></iframe>
-  <div class="actions" style="justify-content:flex-end">
-    <button id="btnPdfOldCancel" class="btn">Kapat</button>
-    <button id="btnPdfOldShare" class="btn neutral"><i class="fa-solid fa-share-from-square"></i> Paylaş</button>
-    <button id="btnPdfOldSave" class="btn success">Kaydet</button>
-  </div>
-</div></div>
-
-<div id="toast" class="toast">Veri yüklendi</div>
-<div id="work" style="position:fixed;left:-9999px;top:-9999px;opacity:0"></div>
-
-<script>
-(function(){
-
-
-
-
-
-/* === DK Patch v2.2: Modal UX + keyboard control === */
-(function(){
-  // helpers
-  const $id = (x)=>document.getElementById(x);
-  const hideSoftKeyboard = ()=>{
-    try{
-      if(document.activeElement){ document.activeElement.blur(); }
-      const last6 = $id('inpBarcode');
-      if(last6){ last6.blur(); }
-    }catch(_){}
-  };
-  const showSoftKeyboard = ()=>{
-    try{
-      const el = $id('inpBarcode');
-      if(!el) return;
-      setTimeout(()=>{
-        try{
-          el.focus();
-          // Select to nudge soft keyboard on some devices
-          if(el.select) el.select();
-          // Tap hint
-          el.click();
-        }catch(_){}
-      }, 120);
-    }catch(_){}
-  };
-
-  // Strengthen refocusAfterAction hook (if defined earlier, we wrap it)
-  try{
-    const _oldRefocus = window.refocusAfterAction;
-    window.refocusAfterAction = function(clear=false){
-      try{ if(typeof _oldRefocus === 'function'){ _oldRefocus(clear); } }catch(_){}
-      // After closing modal and returning to last-6 -> show keyboard
-      showSoftKeyboard();
-    };
-  }catch(_){}
-
-  // Observe modal to:
-  //  - move İptal to top-right
-  //  - hide manual qty input + '+' + 'Onayla' in same mini-row
-  //  - hide barcode visuals only
-  //  - when modal becomes visible -> hide keyboard
-  const compactOnce = () => {
-    const root = $id('mdlProduct');
-    if(!root) return;
-    const style = getComputedStyle(root);
-    const visible = style.display !== 'none' && style.visibility !== 'hidden' && root.offsetParent !== null;
-
-    const box = root.querySelector('.box') || root;
-
-    // Move İptal
-    let cancelBtn = Array.from(root.querySelectorAll('button'))
-      .find(b => /iptal/i.test(((b.textContent||'') + (b.value||'')).trim()));
-    if(cancelBtn){
-      cancelBtn.classList.add('btn-cancel-topright');
-      if(box && cancelBtn.parentElement !== box){
-        box.appendChild(cancelBtn);
-      }
-      cancelBtn.style.display = '';
-    }
-
-    // Hide ONLY manual qty input group (keep preset buttons)
-    Array.from(root.querySelectorAll('input')).forEach(inp=>{
-      const t = (inp.type||'text').toLowerCase();
-      if(['number','tel','text'].includes(t) and inp.type!=='hidden'){
-        const parent = inp.parentElement;
-        if(!parent) return;
-        const btns = Array.from(parent.querySelectorAll('button'));
-        const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
-        const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
-        const cw = inp.clientWidth || 0;
-        const looksQty = (cw>0 && cw<160) && (hasPlus || hasOnayla);
-        if(looksQty){
-          inp.style.display='none';
-          btns.forEach(b=>{
-            if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
-              b.style.display='none';
-            }
-          });
-        }
-      }
-    });
-
-    // Hide barcode visuals ONLY
-    Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
-      const cls = (el.className && (el.className.baseVal || el.className)) || '';
-      if(/barcode|ean|code128|ean13/i.test(cls)){
-        el.style.display = 'none';
-      }
-    });
-
-    // Modal visible? then hide keyboard now.
-    if(visible){ hideSoftKeyboard(); }
-  };
-
-  try{
-    const target = $id('mdlProduct');
-    if(target){
-      const mo = new MutationObserver(()=>{ setTimeout(compactOnce, 20); });
-      mo.observe(target, {attributes:true, childList:true, subtree:true});
-    }
-  }catch(_){}
-
-  // Also run after clicks that may open/close modal
-  document.addEventListener('click', ()=> setTimeout(compactOnce, 40));
-  // One initial pass
-  setTimeout(compactOnce, 150);
-
-  // Expose helpers for other code if needed
-  window._dkHideKeyboard = hideSoftKeyboard;
-  window._dkShowKeyboard = showSoftKeyboard;
-})();
-/* === DK Patch v2.2: Cancel top-right + Keyboard auto-hide/show === */
-(function(){
-  const compactOnce = () => {
-    try{
-      const root = document.getElementById('mdlProduct');
-      if(!root) return;
-      const box = root.querySelector('.box') || root;
-
-      // Move İptal to top-right
-      let cancelBtn = Array.from(root.querySelectorAll('button'))
-        .find(b => /iptal/i.test((b.textContent||'') + (b.value||'')));
-      if(cancelBtn){
-        cancelBtn.classList.add('btn-cancel-topright');
-        if(box && cancelBtn.parentElement !== box){
-          box.appendChild(cancelBtn);
-        }
-        cancelBtn.style.position = 'absolute';
-        cancelBtn.style.top = '8px';
-        cancelBtn.style.right = '10px';
-        cancelBtn.style.display = '';
-      }
-
-      // Hide manual qty input + siblings '+' and 'Onayla'
-      const inputs = Array.from(root.querySelectorAll('input')).filter(inp => {
-        const t = (inp.type||'text').toLowerCase();
-        return t === 'number' || t === 'tel' || t === 'text';
-      });
-      inputs.forEach(inp => {
-        if(getComputedStyle(inp).display === 'none' || inp.type === 'hidden') return;
-        const parent = inp.parentElement;
-        if(!parent) return;
-        const btns = Array.from(parent.querySelectorAll('button'));
-        const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
-        const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
-        const cw = inp.clientWidth || 0;
-        const looksQty = (cw > 0 && cw < 140) && (hasPlus || hasOnayla);
-        if(looksQty){
-          inp.style.display = 'none';
-          btns.forEach(b=>{
-            if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
-              b.style.display = 'none';
-            }
-          });
-        }
-      });
-
-      // Hide barcode visuals only
-      Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
-        const cls = (el.className && (el.className.baseVal || el.className)) || '';
-        if(/barcode|ean|code128|ean13/i.test(cls)){
-          el.style.display = 'none';
-        }
-      });
-
-      // Fit modal
-      const bx = root.querySelector('.box');
-      if(bx){
-        bx.style.maxHeight = '80vh';
-        bx.style.overflow = 'auto';
-      }
-
-      // Hide keyboard when modal opens
-      const active = document.activeElement;
-      if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')){
-        active.blur();
-      }
-    }catch(e){}
-  };
-
-  try{
-    const target = document.getElementById('mdlProduct');
-    if(target){
-      const mo = new MutationObserver(()=>{ setTimeout(compactOnce, 30); });
-      mo.observe(target, {attributes:true, childList:true, subtree:true});
-    }
-  }catch(_){}
-
-  document.addEventListener('click', ()=> setTimeout(compactOnce, 50));
-  setTimeout(compactOnce, 150);
-
-  // Override refocusAfterAction to also show keyboard
-  const oldRefocus = window.refocusAfterAction;
-  window.refocusAfterAction = (clear=false)=>{
-    try{
-      const el = document.getElementById('inpBarcode');
-      if(!el) return;
-      if(clear){ el.value=''; }
-      setTimeout(()=>{
-        try{
-          el.focus();
-          if(el.select) el.select();
-          // Force keyboard open (mobile hint)
-          const evt = new Event('touchstart');
-          el.dispatchEvent(evt);
-        }catch(_){}
-      }, 150);
-    }catch(_){}
-  };
-})();
 /* === DK Patch Guard: Hide legacy full-barcode controls if present === */
 try{
   const _btnFull = document.getElementById('btnFull');
@@ -1223,7 +837,161 @@ $('btnFD10').addEventListener('click', ()=>{
 
 /* ===== Kamera — Android ===== */
 (function(){
-  let stream=null, scanning=false, starting=false, rafId=null, bdDetector=null;
+  
+
+/* === DK Cart Shim: ensure cart list renders on open === */
+(function(){
+  function findCartContainer(){
+    const ids = ['cartList','sepetList','cart-items','cartItems'];
+    for(const id of ids){
+      const el = document.getElementById(id);
+      if(el) return el;
+    }
+    const qs = ['.cart-list','.sepet-list','.cartItems','.list-cart'];
+    for(const q of qs){
+      const el = document.querySelector(q);
+      if(el) return el;
+    }
+    return null;
+  }
+
+  function simpleRow(item, idx){
+    try{
+      const name = item.title || item.name || item.stokAdi || 'Ürün';
+      const code = item.barcode || item.barkod || item.code || '';
+      const qty  = item.qty || item.adet || item.count || 1;
+      const price = item.price || item.fiyat || '';
+      return `<div class="cart-row" data-i="${idx}" style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed #ddd">
+        <div style="min-width:36px;text-align:right">${qty}×</div>
+        <div style="flex:1 1 auto;">
+          <div style="font-weight:600">${name}</div>
+          <div style="font-size:12px;opacity:.7">${code}</div>
+        </div>
+        <div>${price!=='' ? price : ''}</div>
+      </div>`;
+    }catch(_){ return ''; }
+  }
+
+  function fallbackRenderCart(){
+    try{
+      const cont = findCartContainer();
+      if(!cont) return;
+      const cart = (window.cart || window.sepet || []);
+      cont.innerHTML = cart.map(simpleRow).join('');
+    }catch(_){}
+  }
+
+  // Wrap existing renderCart if present; else create one.
+  try{
+    const _old = window.renderCart;
+    window.renderCart = function(){
+      try{ if(typeof _old === 'function') _old(); }catch(_){}
+      fallbackRenderCart();
+    };
+  }catch(_){
+    window.renderCart = fallbackRenderCart;
+  }
+
+  // Ensure render happens whenever cart modal opens or cart button clicked
+  try{
+    const btn = document.getElementById('btnCart') || document.querySelector('[data-open="cart"], .btn-cart');
+    if(btn){
+      btn.addEventListener('click', ()=> { setTimeout(()=>window.renderCart(), 20); });
+    }
+  }catch(_){}
+
+  // Also observe cart modal visibility to re-render
+  try{
+    const modal = document.getElementById('mdlCart') || document.querySelector('.modal-cart');
+    if(modal){
+      const mo = new MutationObserver(()=> setTimeout(()=>window.renderCart(), 20));
+      mo.observe(modal, {attributes:true, childList:true, subtree:true});
+    }
+  }catch(_){}
+})();
+/* === DK Patch v2.1+fixed: Modal compactor + cart render === */
+(function(){
+  const $id = (x)=>document.getElementById(x);
+
+  const compactOnce = () => {
+    try{
+      const root = $id('mdlProduct');
+      if(!root) return;
+      const box = root.querySelector('.box') || root;
+
+      // Move İptal to top-right
+      let cancelBtn = Array.from(root.querySelectorAll('button'))
+        .find(b => /iptal/i.test((b.textContent||'') + (b.value||'')));
+      if(cancelBtn){
+        cancelBtn.classList.add('btn-cancel-topright');
+        if(box && cancelBtn.parentElement !== box){
+          box.appendChild(cancelBtn);
+        }
+        cancelBtn.style.display = '';
+      }
+
+      // Hide ONLY manual qty input and its '+' and 'Onayla'
+      Array.from(root.querySelectorAll('input')).forEach(inp => {
+        const t = (inp.type||'text').toLowerCase();
+        if(['number','tel','text'].includes(t) && inp.type!=='hidden'){
+          const parent = inp.parentElement;
+          if(!parent) return;
+          const btns = Array.from(parent.querySelectorAll('button'));
+          const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
+          const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
+          const cw = inp.clientWidth || 0;
+          const looksQty = (cw>0 && cw<160) && (hasPlus || hasOnayla);
+          if(looksQty){
+            inp.style.display='none';
+            btns.forEach(b=>{
+              if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
+                b.style.display='none';
+              }
+            });
+          }
+        }
+      });
+
+      // Hide barcode visuals ONLY
+      Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
+        const cls = (el.className && (el.className.baseVal || el.className)) || '';
+        if(/barcode|ean|code128|ean13/i.test(cls)){
+          el.style.display = 'none';
+        }
+      });
+
+      // Fit modal
+      if(box){
+        box.style.maxHeight = '80vh';
+        box.style.overflow = 'auto';
+      }
+    }catch(e){}
+  };
+
+  try{
+    const target = $id('mdlProduct');
+    if(target){
+      const mo = new MutationObserver(()=>{ setTimeout(compactOnce, 20); });
+      mo.observe(target, {attributes:true, childList:true, subtree:true});
+    }
+  }catch(_){}
+
+  document.addEventListener('click', ()=> setTimeout(compactOnce, 40));
+  setTimeout(compactOnce, 150);
+
+  // Ensure cart render when sepet clicked
+  try{
+    const btnSepet = $id('btnCart') || document.querySelector('.btn-cart, #cartButton');
+    if(btnSepet){
+      btnSepet.addEventListener('click', ()=>{
+        try{
+          if(typeof renderCart==='function'){ renderCart(); }
+        }catch(e){ console.warn('renderCart missing', e); }
+      });
+    }
+  }catch(_){}
+})();
+let stream=null, scanning=false, starting=false, rafId=null, bdDetector=null;
   const SHEET_ID='camSheet';
   const sheetEl=document.createElement('div'); sheetEl.id=SHEET_ID; sheetEl.innerHTML='<div id="camBox"><div id="camHead"><b>Kamera</b><div><button id="camClose" class="btn">Kapat</button></div></div><div id="camMount"><video id="camVideo" autoplay playsinline muted></video></div><div id="camFoot"><button id="camStop" class="btn">Durdur</button></div></div>'; document.body.appendChild(sheetEl);
   const camSheet=sheetEl, camMount=document.getElementById('camMount'); const camCloseBtn=document.getElementById('camClose'); const camStopBtn=document.getElementById('camStop');
