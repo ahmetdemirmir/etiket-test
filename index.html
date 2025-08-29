@@ -315,7 +315,8 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 (function(){
 
 
-/* === DK Patch v2: Modal compactor & control tweaks === */
+
+/* === DK Patch v2.1: Safer modal compactor (presets stay visible) === */
 (function(){
   const compactOnce = () => {
     try{
@@ -323,55 +324,53 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
       if(!root) return;
       const box = root.querySelector('.box') || root;
 
-      // 1) Move İptal to top-right
+      // Move İptal to top-right (ensure visible)
       let cancelBtn = Array.from(root.querySelectorAll('button'))
-        .find(b => /iptal/i.test(b.textContent || ''));
+        .find(b => /iptal/i.test((b.textContent||'') + (b.value||'')));
       if(cancelBtn){
         cancelBtn.classList.add('btn-cancel-topright');
-        // Put it as last child to ensure absolute position relative to .box
-        box.appendChild(cancelBtn);
+        if(box && cancelBtn.parentElement !== box){
+          box.appendChild(cancelBtn);
+        }
+        cancelBtn.classList.remove('_dkHide');
+        cancelBtn.style.display = '';
       }
 
-      // 2) Hide manual quantity input + "+" + "Onayla"
-      // Hide inputs that look numeric + their immediate group
-      const inputs = Array.from(root.querySelectorAll('input'))
-        .filter(inp => /number|tel|text/i.test(inp.type||'text'));
+      // Hide ONLY manual qty input and its immediate '+' and 'Onayla' siblings
+      const inputs = Array.from(root.querySelectorAll('input')).filter(inp => {
+        const t = (inp.type||'text').toLowerCase();
+        return t === 'number' || t === 'tel' || t === 'text';
+      });
       inputs.forEach(inp => {
-        // Heuristic: manual qty fields are short and near buttons
-        if(inp && inp.closest('.box')){
-          const wrap = inp.closest('.row, .flex, .group, div') || inp.parentElement;
-          if(wrap){
-            // Also hide sibling "+" and any "Onayla" button in same row
-            wrap.classList.add('_dkHide');
-            Array.from(wrap.querySelectorAll('button')).forEach(b=>{
-              if(/\+|onayla/i.test(b.textContent||'')){ b.classList.add('_dkHide'); }
-            });
-          }else{
-            inp.classList.add('_dkHide');
-          }
+        if(getComputedStyle(inp).display === 'none' || inp.type === 'hidden') return;
+        const parent = inp.parentElement;
+        if(!parent) return;
+        const btns = Array.from(parent.querySelectorAll('button'));
+        const hasPlus = btns.some(b => /^\s*\+\s*$/.test(b.textContent||''));
+        const hasOnayla = btns.some(b => /onayla/i.test(b.textContent||''));
+        const cw = inp.clientWidth || 0;
+        const looksQty = (cw > 0 && cw < 140) && (hasPlus || hasOnayla);
+        if(looksQty){
+          inp.style.display = 'none';
+          btns.forEach(b=>{
+            if(/^\s*\+\s*$/.test(b.textContent||'') || /onayla/i.test(b.textContent||'')){
+              b.style.display = 'none';
+              b.classList.add('_dkHide');
+            }
+          });
         }
       });
-      // Additionally, hide any button named Onayla elsewhere
-      Array.from(root.querySelectorAll('button')).forEach(b=>{
-        if(/onayla/i.test(b.textContent||'')){ b.classList.add('_dkHide'); }
-      });
 
-      // 3) Hide barcode preview strip (barcode svg/canvas + tiny name/price)
-      // Strategy: find svg/canvas/img inside modal and hide their nearest container row.
-      const visuals = Array.from(root.querySelectorAll('svg, canvas, img')).filter(el=>{
+      // Hide barcode visuals ONLY (do not hide parents)
+      Array.from(root.querySelectorAll('svg, canvas, img')).forEach(el => {
         const cls = (el.className && (el.className.baseVal || el.className)) || '';
-        return /barcode|ean|code128|ean13/i.test(cls) || true; // be aggressive
-      });
-      if(visuals.length){
-        // pick the first cluster that appears before the quantity buttons
-        const first = visuals[0];
-        const cand = first.closest('.row, .flex, .group, .preview, .header, .head, div');
-        if(cand && cand.closest('#mdlProduct')){
-          cand.classList.add('_dkHide');
+        if(/barcode|ean|code128|ean13/i.test(cls)){
+          el.style.display = 'none';
+          el.classList.add('_dkHide');
         }
-      }
+      });
 
-      // 4) Ensure modal fits better on small screens
+      // Fit modal to viewport
       const bx = root.querySelector('.box');
       if(bx){
         bx.style.maxHeight = '80vh';
@@ -380,7 +379,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     }catch(e){ /* no-op */ }
   };
 
-  // Run on mutations when modal opens/updates
   try{
     const target = document.getElementById('mdlProduct');
     if(target){
@@ -389,9 +387,7 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     }
   }catch(_){}
 
-  // Safety: run after clicks that might open the modal
   document.addEventListener('click', ()=> setTimeout(compactOnce, 50));
-  // Also on DOM ready
   setTimeout(compactOnce, 150);
 })();
 /* === DK Patch Guard: Hide legacy full-barcode controls if present === */
