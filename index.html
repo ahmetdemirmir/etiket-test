@@ -159,17 +159,6 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 .modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
-
-<style id="dk-modal-and-kboff">
-  #mdlProduct .box, #mdlSearch .box{
-    max-width: 520px !important;
-    width: min(92vw, 520px) !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-  #inpBarcode.kb-off { caret-color: transparent !important; }
-</style>
-
 </head>
 <body>
 
@@ -398,6 +387,17 @@ function __dk_showNF(title, code, msg){
 }
 
 function __dk_submit(val){
+/* === DK: FULL → Son-6 pipeline (early delegate) === */
+try{
+  const __raw = String(arguments[0] ?? val ?? '');
+  const __code = parseBarcode(__raw);
+  if(Array.isArray(PRODUCTS) && PRODUCTS.length && __code && __code.length>=6){
+    // Son-6 arama ile *aynı davranış* için doğrudan filterByLast6
+    filterByLast6(__code.slice(-6));
+    return;
+  }
+}catch(__e){ /* no-op */ }
+
   const raw = String(val||'').replace(/[\r\n]+/g,'');
   const code = parseBarcode(raw);
   FULL_BUF = "";
@@ -1721,73 +1721,6 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
-
-
-
-<script id="dk-kb-toggle-and-buffer">
-(function(){
-  const d=document, $=id=>d.getElementById(id);
-  const el = $('inpBarcode');
-  if(!el) return;
-
-  // Varsayılan: numeric inputmode; blur kullanılmaz
-  try{ el.setAttribute('inputmode','numeric'); }catch(_){}
-
-  // Sticky focus: başka inputa tıklanana kadar orada kal
-  let STICKY=true;
-  el.addEventListener('focus', ()=>{ STICKY=true; }, true);
-  d.addEventListener('pointerdown', (ev)=>{
-    const t=ev.target, tag=(t?.tagName||'').toLowerCase();
-    const otherInput = (tag==='input'||tag==='textarea'||tag==='select'||t?.isContentEditable) && t!==el;
-    if(otherInput) STICKY=false;
-  }, true);
-  el.addEventListener('blur', ()=>{
-    setTimeout(()=>{
-      if(STICKY){
-        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
-        try{ el.select(); }catch(_){}
-      }
-    },50);
-  }, true);
-
-  // Global rakam yakalama (debounced) — hem manuel SON6 hem de FULL barkod akışı için
-  let BUF=''; let T=null;
-  d.addEventListener('keydown', (e)=>{
-    const k=e.key;
-    if(!/^[0-9]$/.test(k)) return;
-
-    // SON6: inpBarcode odakta ise veya sticky aktifse dinle
-    const listenSon6 = (d.activeElement===el || STICKY);
-
-    // BARKOD İLE ARAMA: FULL_ACTIVE açık olduğunda da dinle
-    const listenFull = (window.FULL_ACTIVE===true);
-
-    if(!listenSon6 && !listenFull) return;
-
-    BUF += k; if(BUF.length>64) BUF=BUF.slice(-64);
-    if(T) clearTimeout(T);
-    T = setTimeout(()=>{
-      const t = BUF.replace(/\D/g,'');
-      if(t.length>=2){
-        try{ filterByLast6(t.slice(-6)); }catch(_){}
-      }
-    }, 100);
-  }, true);
-
-  // Arama modalı kapanınca tekrar odak
-  try{
-    const btnClose=$('btnSearchClose');
-    if(btnClose){
-      btnClose.addEventListener('click', ()=>{
-        try{ el.value=''; }catch(_){}
-        try{ el.focus({preventScroll:true}); }catch(_){ el.focus(); }
-        try{ el.select(); }catch(_){}
-      });
-    }
-  }catch(_){}
-})();
-</script>
-
 
 </body>
 </html>
