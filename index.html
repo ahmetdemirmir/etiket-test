@@ -428,7 +428,7 @@ const fmtTRY=new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maxi
 const monthsDiff=(d)=>((new Date())-d)/(1000*60*60*24*30);
 const showToast=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);};
 
-const refocusAfterAction = (clear=false)=>{  try{    const el = $('inpBarcode');    if(!el) return;    if(clear){ el.value = ''; }    setTimeout(()=>{ try{ el.focus(); }catch(_){ } }, 80);  }catch(_){ }};
+window.refocusAfterAction = function(){  try{    var el = document.getElementById('inpBarcode');    if(!el) return;    el.value = '';    setTimeout(function(){ try{ el.focus(); if(el.select) el.select(); }catch(e){} }, 80);  }catch(_){ }};
 const fmtDMY=(d)=>{ try{const dt=(d instanceof Date)?d:new Date(d); if(isNaN(dt))return '—'; const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`;}catch(_){ return '—'; }};
 const fromSci=(str)=>{const m=String(str).toLowerCase().match(/^(\d+(?:\.\d+)?)e\+(\d+)$/);if(!m) return String(str);const d=m[1].replace('.','');const dec=(m[1].split('.')[1]||'').length;const exp=+m[2];return d+'0'.repeat(Math.max(0,exp-dec));};
 function parseBarcode(v){ if(v===undefined||v===null)return''; if(typeof v==='number'){const s=String(v);return s.includes('e+')?fromSci(s).replace(/\D/g,''):s.replace(/\D/g,'');} const s=String(v).trim(); if(/e\+\d+$/i.test(s)) return fromSci(s).replace(/\D/g,''); return s.replace(/[^0-9]/g,''); }
@@ -1782,6 +1782,32 @@ window.askAdet = function(callback){
     <button id="btnNfClose" class="btn">Kapat</button>
   </div>
 </div></div>
+
+
+<script>
+(function(){
+  function _focusLast6(){
+    try{
+      var el = document.getElementById('inpBarcode');
+      if(!el) return;
+      el.value = '';
+      setTimeout(function(){ try{ el.focus(); if(el.select) el.select(); }catch(e){} }, 100);
+    }catch(_){}
+  }
+  document.addEventListener('click', function(e){
+    try{
+      var btn = e.target.closest && e.target.closest('button');
+      if(!btn) return;
+      var modal = document.getElementById('mdlProduct');
+      if(!modal) return;
+      // If a button inside modal is clicked (qty preset or cancel), plan to refocus after close
+      if(modal.contains(btn)){
+        setTimeout(_focusLast6, 150);
+      }
+    }catch(_){}
+  }, true);
+})();
+</script>
 
 </body>
 </html>
