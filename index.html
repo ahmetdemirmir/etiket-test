@@ -153,10 +153,10 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 #soundUnlockToast.hidden{ display:none; }
 </style>
 
-<style id="dk-mobile-boost">
-/* Mobil PDA'larda modalın en üstte kalması için maksimum z-index */
-.modal{ z-index: 2147483647 !important; }
-#nfBox{ max-width: 540px; }
+<style id="dk-mobile-modal-fix">
+/* Modal her zaman en üstte ve sabit (mobil PDA için) */
+.modal{ position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; }
+.modal .box{ position: absolute !important; top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; max-width: 560px; width: min(92vw,560px); }
 </style>
 
 </head>
@@ -348,7 +348,7 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== DK: FULL Scan (Wedge) — Toggle, Strict, Mobile-safe ==== */
+/* ==== DK: FULL Scan Toggle + Mobile Modal Fix ==== */
 const btnFull = $('btnFull');
 const inpFull = $('inpFull');
 let FULL_ACTIVE = false;
@@ -356,20 +356,17 @@ let FULL_BUF = "";
 let FULL_TID = null;
 
 function __dk_nd(s){ return String(s??'').replace(/\D/g,''); }
-
 function __dk_findStrict(code){
   const arr = PRODUCTS || [];
   const c = __dk_nd(code);
   if(!c) return null;
-  // exact
   let ex = arr.find(p => __dk_nd(p.barcode) === c);
   if(ex) return ex;
-  // EAN<->UPC tolerance
-  if(c.length === 13){
+  if(c.length===13){
     const c12 = c.slice(1);
     let upc = arr.find(p => { const pb = __dk_nd(p.barcode); return pb.length===12 && pb===c12; });
     if(upc) return upc;
-  }else if(c.length === 12){
+  }else if(c.length===12){
     let ean = arr.find(p => { const pb = __dk_nd(p.barcode); return pb.length===13 && pb.slice(1)===c; });
     if(ean) return ean;
   }
@@ -385,7 +382,7 @@ function __dk_showNF(title, code, msg){
     setTimeout(()=>{ $('mdlNf').classList.add('shown'); }, 10);
     $('btnNfClose').onclick = ()=> $('mdlNf').classList.remove('shown');
   }catch(e){
-    alert((title||'Uyarı') + ': ' + (msg||'') + (code||''));
+    alert((title||'Uyarı')+': '+(msg||'')+(code||''));
   }
 }
 
@@ -398,38 +395,37 @@ function __dk_submit(val){
     __dk_showNF('Veri Yüklenmedi', code, 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ');
     return;
   }
-  if(!code || code.length<8){ return; }
+  if(!code || code.length<8) return;
   const p = __dk_findStrict(code);
   if(p){
     try{ inpFull && inpFull.blur(); }catch(_){}
-    // Modalın görünürlüğü için blur sonrası aç
+    // openProduct'ı çağırmadan önce klavyeyi kapat
     openProduct(p,'terminal');
+    // kutuyu ortaya kaydır
+    try{ $('mdlProduct').querySelector('.box').scrollIntoView({block:'center', inline:'center'}); }catch(_){}
   }else{
     __dk_showNF('Barkod Bulunamadı', code, 'Okutulan: ');
   }
 }
 
 function __dk_queueSubmit(){
-  if(FULL_TID){ clearTimeout(FULL_TID); }
-  // inactivity-based submit (cihaz Enter göndermese bile)
-  FULL_TID = setTimeout(()=>{ __dk_submit(FULL_BUF); }, 120);
+  if(FULL_TID) clearTimeout(FULL_TID);
+  FULL_TID = setTimeout(()=> __dk_submit(FULL_BUF), 120);
 }
 
-// Toggle behavior: one click -> ACTIVE; second click -> INACTIVE
+// Toggle: açıkken global capture aktif, son-6 devreye girmez
 if(btnFull){
   btnFull.addEventListener('click', ()=>{
     FULL_ACTIVE = !FULL_ACTIVE;
     FULL_BUF = "";
+    try{ btnFull.classList.toggle('primary', FULL_ACTIVE); }catch(_){}
     if(FULL_ACTIVE){
       try{ inpFull && inpFull.focus(); if(inpFull && inpFull.select) inpFull.select(); }catch(_){}
-      try{ btnFull.classList.add('primary'); }catch(_){}
-    }else{
-      try{ btnFull.classList.remove('primary'); }catch(_){}
     }
   });
 }
 
-// Input-level handlers (for on-screen keyboard cases)
+// Input-level: Enter/Tab veya newline ile tetikleme
 if(inpFull){
   inpFull.addEventListener('keydown', (e)=>{
     if(e.key==='Enter' || e.key==='Tab'){
@@ -447,9 +443,8 @@ if(inpFull){
   });
 }
 
-// Global capture while FULL_ACTIVE: prevents "son 6" from hijacking the scan
-// Use capture phase to intercept before inputs receive keys.
-function _dk_globalKeyHandler(e){
+// Global capture (capture phase) — FULL açıkken tüm rakam/Enter son-6'ya düşmez
+document.addEventListener('keydown', (e)=>{
   if(!FULL_ACTIVE) return;
   const k = e.key;
   if(/^[0-9]$/.test(k)){
@@ -470,16 +465,23 @@ function _dk_globalKeyHandler(e){
     FULL_BUF = "";
     if(inpFull){ try{ inpFull.value=''; }catch(_){ } }
   }
-}
-document.addEventListener('keydown', _dk_globalKeyHandler, true);
+}, true);
 
-/* Mobile modal safety: when product modal opens, blur inpFull to avoid keyboard overlay */
+// openProduct sarmalayıcı — mobil modal güvenliği
 (function(){
   const _open = window.openProduct;
   if(typeof _open === 'function'){
     window.openProduct = function(p, source){
       try{ inpFull && inpFull.blur(); }catch(_){}
-      return _open(p, source||'terminal');
+      const r = _open(p, source||'terminal');
+      try{
+        // animasyon sonrası ortala
+        setTimeout(()=>{
+          try{ $('mdlProduct').classList.add('shown'); }catch(_){}
+          try{ $('mdlProduct').querySelector('.box').scrollIntoView({block:'center', inline:'center'}); }catch(_){}
+        }, 20);
+      }catch(_){}
+      return r;
     };
   }
 })();
@@ -1700,7 +1702,7 @@ window.askAdet = function(callback){
 </script>
 
 
-<!-- DK: Merkezi Uyarı Modalı (Not Found / Veri Yok) -->
+<!-- DK: Merkezi Uyarı Modalı -->
 <div id="mdlNf" class="modal"><div class="box" id="nfBox">
   <h3 id="nfTitle">Barkod Bulunamadı</h3>
   <div class="mini" id="nfMsg">Okutulan: <b id="nfCode">—</b></div>
