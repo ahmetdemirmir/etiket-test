@@ -317,17 +317,15 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 
 
 
-
-
-/* === DK v2.1 Keyboard Flow Addon (v3): no-input focus inside modal === */
+/* === DK Minimal Keyboard Control (stable v2.1 base) === */
 (function(){
   const $ = (id)=>document.getElementById(id);
 
-  function forceHideKeyboard(){
+  function closeKeyboardOnce(){
     try{
       if(document.activeElement){ document.activeElement.blur(); }
       const last6 = $('inpBarcode'); if(last6) last6.blur();
-      // offscreen input trick
+      // offscreen input trick (single-shot)
       const tmp = document.createElement('input');
       tmp.type = 'text';
       tmp.style.position = 'fixed';
@@ -342,105 +340,47 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
     }catch(_){}
   }
 
-  function showSoftKeyboard(){
+  function openKeyboardOnLast6(){
     try{
       const el = $('inpBarcode'); if(!el) return;
-      setTimeout(()=>{
-        try{ el.focus(); if(el.select) el.select(); el.click(); }catch(_){}
-      }, 120);
+      setTimeout(()=>{ try{ el.focus(); if(el.select) el.select(); el.click(); }catch(_){ } }, 120);
     }catch(_){}
   }
 
-  function disableInputsInModal(modal){
-    const inputs = modal.querySelectorAll('input, textarea, select');
-    inputs.forEach(el => {
-      // store previous states
-      if(el.hasAttribute('autofocus')){
-        el.setAttribute('data-dk-autofocus','1');
-        el.removeAttribute('autofocus');
-      }
-      if(!el.hasAttribute('data-dk-tabindex')){
-        el.setAttribute('data-dk-tabindex', el.tabIndex);
-      }
-      el.tabIndex = -1;
-      // also blur to be safe
-      try{ el.blur(); }catch(_){}
-    });
-  }
-  function restoreInputsInModal(modal){
-    const inputs = modal.querySelectorAll('input, textarea, select');
-    inputs.forEach(el => {
-      if(el.hasAttribute('data-dk-autofocus')){
-        el.setAttribute('autofocus','autofocus');
-        el.removeAttribute('data-dk-autofocus');
-      }
-      const prev = el.getAttribute('data-dk-tabindex');
-      if(prev !== null){
-        el.tabIndex = (prev===''?0:parseInt(prev,10));
-        el.removeAttribute('data-dk-tabindex');
-      }
-    });
-  }
-
-  function focusNonInputInModal(modal){
-    // Prefer cancel button or first quantity preset button
-    let target = Array.from(modal.querySelectorAll('button')).find(b=>/iptal/i.test((b.textContent||'')+(b.value||'')));
-    if(!target){
-      target = modal.querySelector('button, [role="button"], .btn, .button');
-    }
-    if(!target){ target = modal; }
-    try{ target.focus && target.focus(); }catch(_){}
-  }
-
-  // Wrap refocusAfterAction to restore and show keyboard when returning to last-6
+  // Wrap refocusAfterAction to also open keyboard when returning to last-6
   try{
     const _old = window.refocusAfterAction;
     window.refocusAfterAction = function(clear=false){
       try{ if(typeof _old === 'function'){ _old(clear); } }catch(_){}
-      const modal = document.getElementById('mdlProduct');
-      if(modal){ restoreInputsInModal(modal); }
-      showSoftKeyboard();
+      openKeyboardOnLast6();
     };
   }catch(_){}
 
-  function isVisible(el){
-    if(!el) return false;
-    const cs = getComputedStyle(el);
-    if(cs.display === 'none' || cs.visibility === 'hidden') return false;
-    if(el.offsetParent === null && cs.position !== 'fixed') return false;
-    return true;
+  // Detect product modal open and close keyboard once (no other interference)
+  function onMaybeModalOpen(){
+    const m = document.getElementById('mdlProduct');
+    if(!m) return;
+    const visible = m && (m.offsetParent !== null || getComputedStyle(m).position === 'fixed') && getComputedStyle(m).display !== 'none' && getComputedStyle(m).visibility !== 'hidden';
+    if(visible){ closeKeyboardOnce(); }
   }
 
-  function onModalOpen(modal){
-    forceHideKeyboard();
-    disableInputsInModal(modal);
-    focusNonInputInModal(modal);
-  }
-
-  function onModalMaybeChange(){
-    const modal = document.getElementById('mdlProduct') || document.querySelector('.modal, [role="dialog"]');
-    if(modal && isVisible(modal)){
-      onModalOpen(modal);
-    }
-  }
-
-  // Observe body and modal changes
+  // Light observation without heavy DOM churn
   try{
-    const mo = new MutationObserver(()=> setTimeout(onModalMaybeChange, 20));
-    mo.observe(document.body, {childList:true, subtree:true, attributes:true});
+    const mo = new MutationObserver(()=> setTimeout(onMaybeModalOpen, 20));
+    mo.observe(document.body, {attributes:true, childList:true, subtree:true});
   }catch(_){}
 
-  // Also hook clicks/touches
-  ['click','touchstart','transitionend','animationend'].forEach(ev=>{
-    document.addEventListener(ev, ()=> setTimeout(onModalMaybeChange, 20), true);
+  // Also hook common triggers
+  ['click','touchstart'].forEach(ev=>{
+    document.addEventListener(ev, ()=> setTimeout(onMaybeModalOpen, 30), true);
   });
 
   // Initial pass
-  setTimeout(onModalMaybeChange, 150);
+  setTimeout(onMaybeModalOpen, 150);
 
-  // Export helpers for manual use if needed
-  window._dkModalInputsDisable = disableInputsInModal;
-  window._dkModalInputsRestore = restoreInputsInModal;
+  // expose (optional)
+  window._dkCloseKbOnce = closeKeyboardOnce;
+  window._dkOpenKb = openKeyboardOnLast6;
 })();
 /* === DK Patch v2.1: Safer modal compactor (presets stay visible) === */
 (function(){
