@@ -152,6 +152,12 @@ small.hint{display:block;color:var(--muted);margin-top:6px}
 }
 #soundUnlockToast.hidden{ display:none; }
 </style>
+
+<style id="dk-modal-boost">
+/* Modal mutlaka üstte kalsın (mobil PDA örtüşmelerine karşı) */
+.modal{ z-index: 2147483000 !important; }
+</style>
+
 </head>
 <body>
 
@@ -341,62 +347,80 @@ function mapRowByKeys(row){ const nk={};Object.keys(row).forEach(k=>nk[normKey(k
 function normalizeRow(r){ const m=mapRowByKeys(r); return { barcode:parseBarcode(m.barcode), name:String(m.name||'').trim(), price:parsePrice(m.price), priceDate:parseExcelDate(m.date) }; }
 
 
-/* ==== DK: Barkod ile Arama — Strict & Toggle ==== */
+/* ==== DK: Wedge Strict Scan + Modal ==== */
 const inpFull = $('inpFull');
 const btnFull = $('btnFull');
 let FULL_ACTIVE = false;
+let FULL_BUF = "";
 
+// Helpers
 function __dk_normDigits(s){ return String(s??'').replace(/\D/g,''); }
-
 function __dk_findProductStrict(code){
   const arr = PRODUCTS || [];
   const c = __dk_normDigits(code);
   if(!c) return null;
-  // Tam eşleşme
+  // exact
   let exact = arr.find(p => __dk_normDigits(p.barcode) === c);
   if(exact) return exact;
-  // EAN<->UPC toleransı (12<->13)
+  // EAN<->UPC tolerance
   if(c.length === 13){
     const c12 = c.slice(1);
-    let upc = arr.find(p => { const pb = __dk_normDigits(p.barcode); return pb.length===12 && pb===c12; });
+    let upc = arr.find(p => __dk_normDigits(p.barcode).length===12 && __dk_normDigits(p.barcode)===c12);
     if(upc) return upc;
-  }else if(c.length === 12){
-    let ean = arr.find(p => { const pb = __dk_normDigits(p.barcode); return pb.length===13 && pb.slice(1)===c; });
+  } else if(c.length === 12){
+    let ean = arr.find(p => __dk_normDigits(p.barcode).length===13 && __dk_normDigits(p.barcode).slice(1)===c);
     if(ean) return ean;
   }
   return null;
 }
 
-function __dk_fullSubmit(){
+function __dk_nf(title, msg, code){
   try{
-    const raw = String(inpFull.value || '').replace(/[\r\n]+/g,'');
-    const code = parseBarcode(raw);
-    if(!code || code.length<8){ /* yetersiz */ return; }
-    const p = __dk_findProductStrict(code);
-    // Alanı HER DURUMDA temizle
-    try{ inpFull.value=''; }catch(_){}
-    if(p){
-      openProduct(p,'terminal');
-      // Otomatik odak yok — kullanıcı tekrar butona basana kadar
-    }else{
-      try{ showToast('Barkod bulunamadı'); }catch(_){}
-    }
-  }catch(_){ /* sessiz */ }
+    $('nfTitle').textContent = title || 'Barkod Bulunamadı';
+    $('nfMsg').innerHTML = (msg || 'Okutulan: ') + `<b>${(code||'—')}</b>`;
+    $('mdlNf').classList.add('shown');
+    $('btnNfClose').onclick = ()=> $('mdlNf').classList.remove('shown');
+  }catch(_){ alert((title||'Uyarı')+': '+(msg||'')+' '+(code||'')); }
 }
 
+function __dk_submitFull(rawVal){
+  const raw = String(rawVal || '').replace(/[\r\n]+/g,'');
+  const code = parseBarcode(raw);
+  FULL_BUF = "";
+  if(inpFull){ try{ inpFull.value = ''; }catch(_){} }
+  // Guard: data not loaded
+  if(!Array.isArray(PRODUCTS) || PRODUCTS.length===0){
+    __dk_nf('Veri Yüklenmedi', 'Lütfen Excel yükleyin veya Sheets\'ten çekin. Okutulan: ', code);
+    return;
+  }
+  if(!code || code.length<8){
+    // Too short, ignore silently
+    return;
+  }
+  const p = __dk_findProductStrict(code);
+  if(p){
+    openProduct(p,'terminal');
+    // no auto refocus; user must press button again if closed keyboard
+  }else{
+    __dk_nf('Barkod Bulunamadı', 'Okutulan: ', code);
+  }
+}
+
+// Button toggles active mode and focuses input (shows keyboard once)
 if(btnFull){
   btnFull.addEventListener('click', ()=>{
     FULL_ACTIVE = true;
-    try{ inpFull.focus(); inpFull.select && inpFull.select(); }catch(_){}
+    FULL_BUF = "";
+    try{ inpFull && inpFull.focus(); if(inpFull && inpFull.select) inpFull.select(); }catch(_){}
   });
 }
 
+// Input-level handlers (for on-screen keyboard / some wedges)
 if(inpFull){
-  // Fiziksel tarayıcı Enter/Tab ya da yalnızca newline bırakabilir
   inpFull.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter' || e.key === 'Tab'){
       e.preventDefault();
-      __dk_fullSubmit();
+      __dk_submitFull(inpFull.value);
     }
   });
   let __dk_deb;
@@ -404,12 +428,36 @@ if(inpFull){
     const v = String(inpFull.value||'');
     if(/\r|\n/.test(v)){
       clearTimeout(__dk_deb);
-      __dk_deb = setTimeout(__dk_fullSubmit, 10);
+      __dk_deb = setTimeout(()=> __dk_submitFull(v), 10);
     }
   });
-  // Kullanıcı klavyeyi kapatırsa (back/blur), bir daha otomatik açma
   inpFull.addEventListener('blur', ()=>{ FULL_ACTIVE = false; });
 }
+
+// Global wedge capture (when ACTIVE). Ensures hardware scans work even if focus leaks.
+document.addEventListener('keydown', (e)=>{
+  if(!FULL_ACTIVE) return;
+  // Only digits, backspace, enter/tab, escape
+  const k = e.key;
+  if(/^[0-9]$/.test(k)){
+    FULL_BUF += k;
+    if(inpFull){ try{ inpFull.value = FULL_BUF; }catch(_){ } }
+    e.preventDefault();
+  } else if(k === 'Backspace'){
+    FULL_BUF = FULL_BUF.slice(0,-1);
+    if(inpFull){ try{ inpFull.value = FULL_BUF; }catch(_){ } }
+    e.preventDefault();
+  } else if(k === 'Enter' || k === 'Tab'){
+    e.preventDefault();
+    const val = FULL_BUF;
+    FULL_ACTIVE = false;  // after one submit, require pressing the button again
+    __dk_submitFull(val);
+  } else if(k === 'Escape'){
+    FULL_BUF = "";
+    if(inpFull){ try{ inpFull.value = ''; }catch(_){ } }
+    e.preventDefault();
+  }
+});
 
 /* ===== Sheets & Excel Yükleme ===== */
 $('btnFetchSheets').addEventListener('click', ()=>{
@@ -1625,6 +1673,16 @@ window.askAdet = function(callback){
   }catch(_){}
 })();
 </script>
+
+
+<!-- Merkezi Uyarı Modalı -->
+<div id="mdlNf" class="modal"><div class="box">
+  <h3 id="nfTitle">Barkod Bulunamadı</h3>
+  <div class="mini" id="nfMsg">Okutulan: <span id="nfCode">—</span></div>
+  <div class="actions" style="justify-content:flex-end">
+    <button id="btnNfClose" class="btn">Kapat</button>
+  </div>
+</div></div>
 
 </body>
 </html>
